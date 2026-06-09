@@ -4,6 +4,8 @@ client/node_modules/
 .env
 .env.local
 
+config.js
+
 client/build/
 client/dist/
 npm-debug.log*

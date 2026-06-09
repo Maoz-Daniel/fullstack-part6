@@ -62,3 +62,29 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` — don't du
   stamps its comments' `deleted_at`. Only `users_passwords` uses `ON DELETE CASCADE`.
 - **`username` and `email` are UNIQUE across all rows** (including soft-deleted / blocked),
   so those identities stay reserved and can't be reused on registration.
+
+## Locked decisions (Stage B)
+- **MySQL driver: `mysql2`, not `mysql`.** `fullstack_context.md` specifies the `mysql`
+  driver, but the server is MySQL 9.7, which removed `mysql_native_password` (gone since
+  MySQL 9.0). The legacy `mysql` driver can't do `caching_sha2_password`, so it cannot
+  authenticate at all. `mysql2` is a drop-in — we keep the same **callback API** and the
+  `util.promisify`-wrapped query helper; only the `require` changed. `fullstack_context.md`
+  is the canonical course reference and is left as-is; this deviation lives only here.
+- **Server lives at the repo root.** Entry `index.js`; `routes/`, `middleware/`,
+  `validation/` alongside it. The React app stays in `client/`.
+- **DB credentials in a gitignored `config.js`.** `config.example.js` (committed)
+  documents the shape; the real `config.js` holds the `app_user` password and is never
+  committed.
+- **One promisified connection.** `db/connection.js` opens a single `app_user` connection
+  and exports a `util.promisify`-wrapped `query()` helper; all routes use `async/await`
+  with `?` placeholders. `CALL sp_*` returns the proc's rows under `result[0]`.
+- **Registration is atomic.** `POST /register` wraps `INSERT users` + `CALL sp_set_password`
+  in one transaction (COMMIT/ROLLBACK), so a `username`/`email` is never reserved without a
+  usable password.
+- **Login is stateless and generic.** `POST /login` calls `sp_verify_login` and returns the
+  user (never a password) on success; any failure — wrong password, blocked, or deleted —
+  is one `401 "Invalid username or password"`. No sessions/JWT; the client stores the user
+  in Local Storage (Stage C).
+- **Error/status conventions.** Joi-validated input (`400` on failure); duplicate
+  identity → `409`; unmatched route → `404`; everything else flows through one central
+  error handler (`500`). Errors are JSON: `{ "error": "..." }`.
