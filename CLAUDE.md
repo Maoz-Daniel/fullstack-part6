@@ -85,6 +85,10 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` — don't du
   user (never a password) on success; any failure — wrong password, blocked, or deleted —
   is one `401 "Invalid username or password"`. No sessions/JWT; the client stores the user
   in Local Storage (Stage C).
+- **Temporary active-user identification for Stage B.** Until the client auth flow is wired
+  end-to-end, mutating `posts`/`comments` requests identify the active user via the
+  `x-user-id` request header. `POST`, `PUT`, and `DELETE` on those resources use that header
+  for ownership checks server-side.
 - **Error/status conventions.** Joi-validated input (`400` on failure); duplicate
   identity → `409`; unmatched route → `404`; everything else flows through one central
   error handler (`500`). Errors are JSON: `{ "error": "..." }`.
@@ -93,5 +97,4 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` — don't du
   import these and stay thin (validate → call → respond). Reads filter
   `deleted_at IS NULL`; DELETE reads the row, returns it, then stamps `deleted_at`
   (soft delete). The shared `query()` helper in `db/connection.js` is unchanged. This is
-  the template for posts/comments. (Earlier `users`/`auth` call `query()` inline; they
-  can be refactored to match later, no rush.)
+  the template for all resources.

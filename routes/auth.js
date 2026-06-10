@@ -2,6 +2,7 @@
 // All credential work goes through the SQL SECURITY DEFINER procedures
 // (sp_set_password / sp_verify_login). App code never touches users_passwords.
 const express = require('express');
+const users = require('../db/users');
 const { query } = require('../db/connection');
 const { registerSchema, loginSchema } = require('../validation/authSchemas');
 
@@ -14,29 +15,10 @@ router.post('/register', async (req, res) => {
   const { error, value } = registerSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const { name, username, email, password, phone, website } = value;
-
-  await query('START TRANSACTION');
   try {
-    const result = await query(
-      `INSERT INTO users (name, username, email, phone, website)
-       VALUES (?, ?, ?, ?, ?)`,
-      [name, username, email, phone || null, website || null]
-    );
-    const id = result.insertId;
-
-    // Hashing + per-row salt happen inside the definer procedure.
-    await query('CALL sp_set_password(?, ?)', [id, password]);
-
-    await query('COMMIT');
-    return res.status(201).json({
-      id, name, username, email,
-      phone: phone || null,
-      website: website || null,
-      is_admin: 0,
-    });
+    const created = await users.createUser(value);
+    return res.status(201).json(created);
   } catch (err) {
-    await query('ROLLBACK');
     // username/email are UNIQUE across all rows -> reserved identities.
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ error: 'username or email already taken' });
@@ -59,7 +41,7 @@ router.post('/login', async (req, res) => {
   if (rows.length !== 1) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
-  res.json(rows[0]);
+  return res.json(rows[0]);
 });
 
 module.exports = router;

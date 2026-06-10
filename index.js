@@ -7,6 +7,8 @@ app.use(express.json()); // REQUIRED to parse JSON request bodies (req.body)
 
 app.use('/users', require('./routes/users'));
 app.use('/todos', require('./routes/todos'));
+app.use('/posts', require('./routes/posts'));
+app.use('/comments', require('./routes/comments'));
 app.use(require('./routes/auth')); // /register, /login
 
 app.use(notFound);      // 404 for unmatched routes
