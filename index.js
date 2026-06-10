@@ -1,9 +1,16 @@
 // Express server entry point. Stage B: skeleton + GET /users + auth (register/login).
+const cors = require('cors');
 const express = require('express');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
+
 app.use(express.json()); // REQUIRED to parse JSON request bodies (req.body)
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+  })
+);
 
 app.use('/users', require('./routes/users'));
 app.use('/todos', require('./routes/todos'));

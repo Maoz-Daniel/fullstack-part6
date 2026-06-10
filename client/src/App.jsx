@@ -1,14 +1,9 @@
+import { RouterProvider } from 'react-router-dom';
+import { router } from './router/router.jsx';
 import './App.css';
 
 function App() {
-  return (
-    <main className="app">
-      <section className="app-shell">
-        <h1>Fullstack Project 6</h1>
-        <p>React + Vite client is ready.</p>
-      </section>
-    </main>
-  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;

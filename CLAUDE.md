@@ -98,3 +98,15 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` — don't du
   `deleted_at IS NULL`; DELETE reads the row, returns it, then stamps `deleted_at`
   (soft delete). The shared `query()` helper in `db/connection.js` is unchanged. This is
   the template for all resources.
+
+## Locked decisions (Stage C)
+- **React Router is allowed.** The client uses `react-router-dom` for `/login`,
+  `/register`, and authenticated app URLs such as `/users/:username/posts` and
+  `/users/:username/todos`.
+- **Client auth state.** The logged-in user is stored in Local Storage under
+  `loggedInUser`; the stored object must not include a password.
+- **Two-server development setup.** The React client runs on `http://localhost:5173` and
+  the Express API runs on `http://localhost:3000`. Client-side `fetch` calls use the full
+  API origin (`http://localhost:3000/...`).
+- **CORS allowlist.** During development, Express enables CORS only for
+  `http://localhost:5173`.
