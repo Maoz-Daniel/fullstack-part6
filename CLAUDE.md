@@ -88,3 +88,10 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` — don't du
 - **Error/status conventions.** Joi-validated input (`400` on failure); duplicate
   identity → `409`; unmatched route → `404`; everything else flows through one central
   error handler (`500`). Errors are JSON: `{ "error": "..." }`.
+- **Per-resource DB modules.** Each resource gets its own data-access module under `db/`
+  (e.g. `db/todos.js`) exporting plain `async` functions that wrap the SQL; route files
+  import these and stay thin (validate → call → respond). Reads filter
+  `deleted_at IS NULL`; DELETE reads the row, returns it, then stamps `deleted_at`
+  (soft delete). The shared `query()` helper in `db/connection.js` is unchanged. This is
+  the template for posts/comments. (Earlier `users`/`auth` call `query()` inline; they
+  can be refactored to match later, no rush.)
