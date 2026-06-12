@@ -10,4 +10,8 @@ module.exports = {
     password: 'CHANGE_ME',
     database: 'project6',
   },
+  jwt: {
+    secret: 'CHANGE_ME',
+    expiresIn: '7d',
+  },
 };

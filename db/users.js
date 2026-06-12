@@ -26,7 +26,7 @@ async function getUserById(id) {
   return rows[0];
 }
 
-// "Active user" for the temporary x-user-id header: must exist and not be blocked/deleted.
+// "Active user" for authenticated flows: must exist and not be blocked/deleted.
 async function getActiveUserById(id) {
   const rows = await query(
     `${userSelectSql()}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { registerUser } from '../services/authService.js';
+import { loginUser, registerUser } from '../services/authService.js';
 
 const INITIAL_FORM_DATA = {
   name: '',
@@ -43,19 +43,28 @@ export function RegisterPage() {
     }
 
     setIsSubmitting(true);
+    let didCreateUser = false;
     try {
-      const user = await registerUser({
+      const username = formData.username.trim();
+      const password = formData.password;
+
+      await registerUser({
         name: formData.name.trim(),
-        username: formData.username.trim(),
+        username,
         email: formData.email.trim(),
-        password: formData.password,
+        password,
         phone: formData.phone.trim(),
         website: formData.website.trim(),
       });
-      const sessionUser = login(user);
-      navigate(`/users/${sessionUser.username}/posts`, { replace: true });
+      didCreateUser = true;
+
+      const authSession = await loginUser({ username, password });
+      const savedSession = login(authSession);
+      navigate(`/users/${savedSession.user.username}/posts`, { replace: true });
     } catch (err) {
-      setError(err.message || 'Registration failed.');
+      setError(
+        err.message || (didCreateUser ? 'Account created, but automatic login failed.' : 'Registration failed.')
+      );
     } finally {
       setIsSubmitting(false);
     }

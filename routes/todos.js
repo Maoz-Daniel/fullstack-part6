@@ -1,7 +1,8 @@
-// /todos routes — full CRUD. Thin handlers over db/todos.js. Soft delete via deleted_at.
-// No ownership enforcement this slice (todos are open; ownership is a Stage E concern).
+// /todos routes - full CRUD. Reads stay public; writes require a valid JWT and
+// enforce ownership via req.activeUserId.
 const express = require('express');
 const todos = require('../db/todos');
+const { authenticateToken } = require('../middleware/authenticateToken');
 const { createSchema, updateSchema, listQuerySchema } = require('../validation/todoSchemas');
 
 const router = express.Router();
@@ -22,41 +23,45 @@ router.get('/:id', async (req, res) => {
   res.json(todo);
 });
 
-// POST /todos -> create. 201 + created row. FK miss on user_id -> 400.
-router.post('/', async (req, res) => {
+// POST /todos -> create for the authenticated user. The owner comes from the JWT.
+router.post('/', authenticateToken, async (req, res) => {
   const { error, value } = createSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  try {
-    const created = await todos.createTodo(value);
-    return res.status(201).json(created);
-  } catch (err) {
-    if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-      return res.status(400).json({ error: 'user_id does not reference an existing user' });
-    }
-    throw err; // unexpected -> central error handler -> 500
-  }
+  const created = await todos.createTodo({
+    user_id: req.activeUserId,
+    title: value.title,
+    completed: value.completed,
+  });
+
+  return res.status(201).json(created);
 });
 
-// PUT /todos/:id -> update title and/or completed. 200 + updated row, or 404.
-router.put('/:id', async (req, res) => {
+// PUT /todos/:id -> update only if the todo belongs to the authenticated user.
+router.put('/:id', authenticateToken, async (req, res) => {
   const { error, value } = updateSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
   const existing = await todos.getTodoById(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Todo not found' });
+  if (existing.user_id !== req.activeUserId) {
+    return res.status(403).json({ error: 'You can only update your own todos' });
+  }
 
   const updated = await todos.updateTodo(req.params.id, value);
   res.json(updated);
 });
 
-// DELETE /todos/:id -> soft delete. Read the row, stamp deleted_at, return the snapshot.
-router.delete('/:id', async (req, res) => {
+// DELETE /todos/:id -> soft delete only if the todo belongs to the authenticated user.
+router.delete('/:id', authenticateToken, async (req, res) => {
   const todo = await todos.getTodoById(req.params.id);
   if (!todo) return res.status(404).json({ error: 'Todo not found' });
+  if (todo.user_id !== req.activeUserId) {
+    return res.status(403).json({ error: 'You can only delete your own todos' });
+  }
 
   await todos.softDeleteTodo(req.params.id);
-  res.json(todo); // pre-delete snapshot, per CLAUDE.md
+  res.json(todo);
 });
 
 module.exports = router;

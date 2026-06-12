@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { clearSessionUser, readSessionUser, writeSessionUser } from '../utils/session.js';
+import { clearSessionUser, readSession, readSessionUser, writeSession } from '../utils/session.js';
 
 export function getUser() {
   return readSessionUser();
@@ -10,23 +10,24 @@ export function isAuthenticated() {
 }
 
 export function useAuth() {
-  const [user, setUser] = useState(() => readSessionUser());
+  const [session, setSession] = useState(() => readSession());
 
-  function login(nextUser) {
-    const sessionUser = writeSessionUser(nextUser);
-    setUser(sessionUser);
-    return sessionUser;
+  function login(nextSession) {
+    const savedSession = writeSession(nextSession);
+    setSession(savedSession);
+    return savedSession;
   }
 
   function logout() {
     clearSessionUser();
-    setUser(null);
+    setSession(null);
   }
 
   return {
-    user,
+    user: session?.user || null,
+    token: session?.token || null,
     login,
     logout,
-    isAuthenticated: user !== null,
+    isAuthenticated: session !== null,
   };
 }

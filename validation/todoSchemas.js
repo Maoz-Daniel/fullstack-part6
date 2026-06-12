@@ -3,7 +3,7 @@ const Joi = require('joi');
 
 // Create: user_id + title required; completed optional (defaults to false).
 const createSchema = Joi.object({
-  user_id: Joi.number().integer().positive().required(),
+  user_id: Joi.number().integer().positive(),
   title: Joi.string().min(1).required(),
   completed: Joi.boolean().default(false),
 });

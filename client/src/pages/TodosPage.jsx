@@ -83,7 +83,6 @@ export function TodosPage() {
 
     try {
       const created = await createTodo({
-        user_id: user.id,
         title,
         completed: false,
       });

@@ -1,12 +1,16 @@
+import { readSessionToken } from '../utils/session.js';
+
 const API_BASE_URL = 'http://localhost:3000';
 
 export async function apiClient(path, options = {}) {
   const { method = 'GET', body, headers = {} } = options;
+  const token = readSessionToken();
   const apiPath = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
   const requestOptions = {
     method,
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body ? JSON.stringify(body) : undefined,

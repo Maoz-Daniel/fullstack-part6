@@ -1,7 +1,7 @@
-// /posts routes — full CRUD with x-user-id based ownership enforcement for writes.
+// /posts routes - full CRUD with JWT-based ownership enforcement for writes.
 const express = require('express');
 const posts = require('../db/posts');
-const { requireActiveUser } = require('../middleware/requireActiveUser');
+const { authenticateToken } = require('../middleware/authenticateToken');
 const { createSchema, updateSchema, listQuerySchema } = require('../validation/postSchemas');
 
 const router = express.Router();
@@ -9,7 +9,7 @@ const router = express.Router();
 // GET /posts -> active posts, optional ?userId= filter.
 router.get('/', async (req, res) => {
   const { error, value } = listQuerySchema.validate(req.query);
-  
+
   if (error) return res.status(400).json({ error: error.details[0].message });
 
   const list = await posts.listPosts({ userId: value.userId });
@@ -23,8 +23,8 @@ router.get('/:id', async (req, res) => {
   res.json(post);
 });
 
-// POST /posts -> create for the active user identified by x-user-id.
-router.post('/', requireActiveUser, async (req, res) => {
+// POST /posts -> create for the authenticated user identified by the JWT.
+router.post('/', authenticateToken, async (req, res) => {
   const { error, value } = createSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
@@ -37,8 +37,8 @@ router.post('/', requireActiveUser, async (req, res) => {
   res.status(201).json(created);
 });
 
-// PUT /posts/:id -> update only if the post belongs to the active user.
-router.put('/:id', requireActiveUser, async (req, res) => {
+// PUT /posts/:id -> update only if the post belongs to the authenticated user.
+router.put('/:id', authenticateToken, async (req, res) => {
   const { error, value } = updateSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
@@ -52,8 +52,8 @@ router.put('/:id', requireActiveUser, async (req, res) => {
   res.json(updated);
 });
 
-// DELETE /posts/:id -> soft delete only if the post belongs to the active user.
-router.delete('/:id', requireActiveUser, async (req, res) => {
+// DELETE /posts/:id -> soft delete only if the post belongs to the authenticated user.
+router.delete('/:id', authenticateToken, async (req, res) => {
   const existing = await posts.getPostById(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Post not found' });
   if (existing.user_id !== req.activeUserId) {

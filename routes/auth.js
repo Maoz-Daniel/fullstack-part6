@@ -2,11 +2,24 @@
 // All credential work goes through the SQL SECURITY DEFINER procedures
 // (sp_set_password / sp_verify_login). App code never touches users_passwords.
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const users = require('../db/users');
 const { query } = require('../db/connection');
+const config = require('../config');
 const { registerSchema, loginSchema } = require('../validation/authSchemas');
 
 const router = express.Router();
+
+function createAuthToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+    },
+    config.jwt.secret,
+    { expiresIn: config.jwt.expiresIn }
+  );
+}
 
 // POST /register -> create the user, then set its password via sp_set_password.
 // The INSERT + CALL run in one transaction so a username can't be reserved with no
@@ -29,7 +42,7 @@ router.post('/register', async (req, res) => {
 
 // POST /login -> verify via sp_verify_login. The proc returns the user row only when
 // the password matches AND the user is not blocked/deleted; otherwise no rows.
-// Stateless: we return the user; the client stores it in LocalStorage (Stage C).
+// On success we return the user plus a signed JWT for later authenticated requests.
 router.post('/login', async (req, res) => {
   const { error, value } = loginSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
@@ -41,7 +54,10 @@ router.post('/login', async (req, res) => {
   if (rows.length !== 1) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
-  return res.json(rows[0]);
+
+  const user = rows[0];
+  const token = createAuthToken(user);
+  return res.json({ user, token });
 });
 
 module.exports = router;

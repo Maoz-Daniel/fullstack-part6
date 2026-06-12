@@ -26,12 +26,12 @@ export function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      const user = await loginUser({
+      const authSession = await loginUser({
         username: formData.username.trim(),
         password: formData.password,
       });
-      const sessionUser = login(user);
-      navigate(`/users/${sessionUser.username}/posts`, { replace: true });
+      const savedSession = login(authSession);
+      navigate(`/users/${savedSession.user.username}/posts`, { replace: true });
     } catch (err) {
       setError(err.message || 'Invalid username or password.');
     } finally {
