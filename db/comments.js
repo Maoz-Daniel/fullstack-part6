@@ -3,22 +3,24 @@ const { query } = require('./connection');
 
 // List active comments, optionally filtered by postId and/or userId.
 async function listComments({ postId, userId } = {}) {
-  const where = ['deleted_at IS NULL'];
+  const where = ['comments.deleted_at IS NULL'];
   const params = [];
 
   if (postId !== undefined) {
-    where.push('post_id = ?');
+    where.push('comments.post_id = ?');
     params.push(postId);
   }
   if (userId !== undefined) {
-    where.push('user_id = ?');
+    where.push('comments.user_id = ?');
     params.push(userId);
   }
 
   return query(
-    `SELECT id, post_id, user_id, body FROM comments
+    `SELECT comments.id, comments.post_id, comments.user_id, users.email AS user_email, comments.body
+     FROM comments
+     JOIN users ON users.id = comments.user_id
      WHERE ${where.join(' AND ')}
-     ORDER BY id`,
+     ORDER BY comments.id`,
     params
   );
 }
@@ -26,8 +28,10 @@ async function listComments({ postId, userId } = {}) {
 // Single active comment by id, or undefined if missing/soft-deleted.
 async function getCommentById(id) {
   const rows = await query(
-    `SELECT id, post_id, user_id, body FROM comments
-     WHERE id = ? AND deleted_at IS NULL`,
+    `SELECT comments.id, comments.post_id, comments.user_id, users.email AS user_email, comments.body
+     FROM comments
+     JOIN users ON users.id = comments.user_id
+     WHERE comments.id = ? AND comments.deleted_at IS NULL`,
     [id]
   );
   return rows[0];

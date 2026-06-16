@@ -111,3 +111,27 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
   API origin (`http://localhost:3000/...`).
 - **CORS allowlist.** During development, Express enables CORS only for
   `http://localhost:5173`.
+
+## Locked decisions (Stage D)
+- **Todos belong to the logged-in user.** The client reads the active user from
+  `loggedInUser.user` in Local Storage and never lets the user choose `user_id` manually.
+- **Todos CRUD is active in the client.** `/users/:username/todos` loads the user's todos,
+  shows them ordered by `id`, displays completion with a checkbox, and supports create,
+  update, completion toggle, filtering, and soft delete.
+- **Todos writes are JWT-protected.** The client sends `Authorization: Bearer ...`; the
+  server uses the token to decide ownership and rejects unauthorized changes.
+
+## Locked decisions (Stage E)
+- **Posts screen supports `My posts` and `All posts`.** Default is `My posts`
+  (`GET /posts?userId=<id>`). `All posts` uses `GET /posts` and shows active posts from
+  all users, ordered by `id`.
+- **Post ownership is enforced twice.** The UI only shows `Edit`/`Delete` for posts whose
+  `user_id` matches the logged-in user, and the server still enforces this through JWT so
+  direct API attempts against someone else's post return `403`.
+- **Comments are open for all active posts.** Any logged-in user may add a comment to any
+  active post. Editing/deleting a comment is allowed only for the user who wrote that
+  comment, both in the UI and in the server ownership checks.
+- **Posts and comments display author email, not user id.** `db/posts.js` and
+  `db/comments.js` join `users` and return `user_email` for list/get/create/update flows.
+  The client displays `user_email`, with a fallback to the active user's email or `User <id>`
+  only if the server was not restarted or did not return the email.

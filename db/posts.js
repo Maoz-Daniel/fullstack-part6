@@ -3,18 +3,20 @@ const { query } = require('./connection');
 
 // List active posts, optionally filtered by userId.
 async function listPosts({ userId } = {}) {
-  const where = ['deleted_at IS NULL'];
+  const where = ['posts.deleted_at IS NULL'];
   const params = [];
 
   if (userId !== undefined) {
-    where.push('user_id = ?');
+    where.push('posts.user_id = ?');
     params.push(userId);
   }
 
   return query(
-    `SELECT id, user_id, title, body FROM posts
+    `SELECT posts.id, posts.user_id, users.email AS user_email, posts.title, posts.body
+     FROM posts
+     JOIN users ON users.id = posts.user_id
      WHERE ${where.join(' AND ')}
-     ORDER BY id`,
+     ORDER BY posts.id`,
     params
   );
 }
@@ -22,8 +24,10 @@ async function listPosts({ userId } = {}) {
 // Single active post by id, or undefined if missing/soft-deleted.
 async function getPostById(id) {
   const rows = await query(
-    `SELECT id, user_id, title, body FROM posts
-     WHERE id = ? AND deleted_at IS NULL`,
+    `SELECT posts.id, posts.user_id, users.email AS user_email, posts.title, posts.body
+     FROM posts
+     JOIN users ON users.id = posts.user_id
+     WHERE posts.id = ? AND posts.deleted_at IS NULL`,
     [id]
   );
   return rows[0];
