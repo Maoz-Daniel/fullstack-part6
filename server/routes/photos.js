@@ -3,6 +3,7 @@
 const express = require('express');
 const photos = require('../db/photos');
 const albums = require('../db/albums');
+const { safeLogAction } = require('../db/userActions');
 const { authenticateToken } = require('../middleware/authenticateToken');
 const { sendPaginated } = require('../middleware/pagination');
 const { createSchema, updateSchema, listQuerySchema } = require('../validation/photoSchemas');
@@ -56,6 +57,14 @@ router.post('/', async (req, res) => {
     thumbnailUrl: value.thumbnail_url,
   });
 
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'photo_create',
+    resourceType: 'photo',
+    resourceId: created.id,
+    details: `created photo ${created.id} in album ${created.album_id}`,
+  });
   res.status(201).json(created);
 });
 
@@ -74,6 +83,14 @@ router.put('/:id', async (req, res) => {
     url: value.url,
     thumbnailUrl: value.thumbnail_url,
   });
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'photo_update',
+    resourceType: 'photo',
+    resourceId: updated.id,
+    details: `updated photo ${updated.id}`,
+  });
   res.json(updated);
 });
 
@@ -85,6 +102,14 @@ router.delete('/:id', async (req, res) => {
   }
 
   await photos.softDeletePhoto(req.params.id);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'photo_delete',
+    resourceType: 'photo',
+    resourceId: existing.id,
+    details: `deleted photo ${existing.id}`,
+  });
   res.json(existing);
 });
 

@@ -26,6 +26,15 @@ async function getUserById(id) {
   return rows[0];
 }
 
+async function getUserByUsername(username) {
+  const rows = await query(
+    `${userSelectSql()}
+     WHERE username = ? AND deleted_at IS NULL`,
+    [username]
+  );
+  return rows[0];
+}
+
 // "Active user" for authenticated flows: must exist and not be blocked/deleted.
 async function getActiveUserById(id) {
   const rows = await query(
@@ -93,6 +102,39 @@ async function updateUser(id, fields) {
   return getUserById(id);
 }
 
+async function blockUser(id) {
+  await query(
+    `UPDATE users
+     SET blocked_at = NOW()
+     WHERE id = ? AND deleted_at IS NULL`,
+    [id]
+  );
+
+  return getUserById(id);
+}
+
+async function unblockUser(id) {
+  await query(
+    `UPDATE users
+     SET blocked_at = NULL
+     WHERE id = ? AND deleted_at IS NULL`,
+    [id]
+  );
+
+  return getUserById(id);
+}
+
+async function makeUserAdmin(id) {
+  await query(
+    `UPDATE users
+     SET is_admin = 1
+     WHERE id = ? AND deleted_at IS NULL`,
+    [id]
+  );
+
+  return getUserById(id);
+}
+
 // Soft delete a user and cascade the soft delete to dependent resources in server code.
 async function softDeleteUser(id) {
   await query('START TRANSACTION');
@@ -127,8 +169,12 @@ async function softDeleteUser(id) {
 module.exports = {
   listUsers,
   getUserById,
+  getUserByUsername,
   getActiveUserById,
   createUser,
   updateUser,
+  blockUser,
+  unblockUser,
+  makeUserAdmin,
   softDeleteUser,
 };

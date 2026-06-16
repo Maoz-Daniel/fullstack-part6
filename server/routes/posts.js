@@ -1,7 +1,9 @@
 // /posts routes - full CRUD with JWT-based ownership enforcement for writes.
 const express = require('express');
 const posts = require('../db/posts');
+const { safeLogAction } = require('../db/userActions');
 const { authenticateToken } = require('../middleware/authenticateToken');
+const { sendPaginated } = require('../middleware/pagination');
 const { createSchema, updateSchema, listQuerySchema } = require('../validation/postSchemas');
 
 const router = express.Router();
@@ -12,8 +14,14 @@ router.get('/', async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const list = await posts.listPosts({ userId: value.userId });
-  res.json(list);
+  const { page, limit, userId } = value;
+  const rows = await posts.listPosts({
+    userId,
+    limit,
+    offset: (page - 1) * limit,
+  });
+
+  sendPaginated(req, res, rows, { page, limit, query: value });
 });
 
 // GET /posts/:id -> single active post, or 404.
@@ -34,6 +42,14 @@ router.post('/', authenticateToken, async (req, res) => {
     body: value.body,
   });
 
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'post_create',
+    resourceType: 'post',
+    resourceId: created.id,
+    details: `created post ${created.id}`,
+  });
   res.status(201).json(created);
 });
 
@@ -49,6 +65,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 
   const updated = await posts.updatePost(req.params.id, value);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'post_update',
+    resourceType: 'post',
+    resourceId: updated.id,
+    details: `updated post ${updated.id}`,
+  });
   res.json(updated);
 });
 
@@ -61,6 +85,14 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 
   await posts.softDeletePost(req.params.id);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'post_delete',
+    resourceType: 'post',
+    resourceId: existing.id,
+    details: `deleted post ${existing.id}`,
+  });
   res.json(existing);
 });
 

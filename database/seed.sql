@@ -1,9 +1,10 @@
 -- ============================================================================
 -- Project 6 — Stage A: seed data
--- Run as root AFTER db/schema.sql:  mysql -u root -p < db/seed.sql
+-- Run as root AFTER database/schema.sql:  mysql -u root -p < database/seed.sql
 --
--- 3 users (shlomo = admin) · 3 todos each · 2 posts each · 2 comments per post.
--- Stage F: 2 albums each · 7 photos per album.
+-- 4 users (admin is separate). Maoz/Dana/Yossi have todos/posts/comments seed data.
+-- Stage F: Maoz has 6 albums; Dana/Yossi have 2 each. Maoz has 28 photos
+-- in each original album; other users have 7 photos per album.
 -- All rows start active (deleted_at / blocked_at default NULL).
 -- Passwords are set via the definer procedure, never a raw INSERT.
 -- ============================================================================
@@ -11,15 +12,17 @@
 USE project6;
 
 INSERT INTO users (name, username, email, phone, website, is_admin) VALUES
-  ('Shlomo Cohen', 'shlomo', 'shlomo@example.com', '050-1111111', 'shlomo.dev', 1),  -- admin
+  ('Maoz Cohen',   'maoz',   'maoz@example.com',   '050-1111111', 'maoz.dev',   0),
   ('Dana Levi',    'dana',   'dana@example.com',   '052-2222222', 'dana.io',    0),
-  ('Yossi Mizrahi','yossi',  'yossi@example.com',  '054-3333333', 'yossi.net',  0);
--- => ids 1=shlomo (admin), 2=dana, 3=yossi
+  ('Yossi Mizrahi','yossi',  'yossi@example.com',  '054-3333333', 'yossi.net',  0),
+  ('System Admin', 'admin',  'admin@example.com',  '050-0000000', 'admin.local', 1);
+-- => ids 1=maoz, 2=dana, 3=yossi, 4=admin
 
 -- Passwords via the definer procedure (never a raw INSERT).
-CALL sp_set_password(1, 'shlomo123');
+CALL sp_set_password(1, 'maoz123');
 CALL sp_set_password(2, 'dana123');
 CALL sp_set_password(3, 'yossi123');
+CALL sp_set_password(4, 'admin123');
 
 INSERT INTO todos (user_id, title, completed) VALUES
   (1, 'Finish Stage A schema', 1), (1, 'Review REST routes', 0), (1, 'Prep demo', 0),
@@ -27,7 +30,7 @@ INSERT INTO todos (user_id, title, completed) VALUES
   (3, 'Set up MySQL locally',  1), (3, 'Seed sample data',   1), (3, 'Read FK docs', 0);
 
 INSERT INTO posts (user_id, title, body) VALUES
-  (1, 'My first post',      'Hello from Shlomo.'),                           -- id 1
+  (1, 'My first post',      'Hello from Maoz.'),                             -- id 1
   (1, 'Thoughts on REST',   'Resources are nouns, verbs are HTTP methods.'), -- id 2
   (2, 'Learning React',     'Components + state are clicking now.'),         -- id 3
   (2, 'MySQL joins',        'INNER vs LEFT finally makes sense.'),           -- id 4
@@ -43,17 +46,22 @@ INSERT INTO comments (post_id, user_id, body) VALUES
   (6, 1, 'Agreed on soft delete.'),  (6, 2, 'Good call.');
 
 -- ---------------------------------------------------------------------------
--- ALBUMS + PHOTOS (Stage F bonus). 2 albums per user; 7 photos per album so
--- pagination (default limit 6) shows a second page. Photos are private to the
--- album owner (photos.user_id = album owner).
+-- ALBUMS + PHOTOS (Stage F bonus). Maoz has 6 albums; Dana/Yossi have 2 each.
+-- Maoz has 28 photos in each original album (56 total, 4x the original 14);
+-- other users have 7 photos per album. Photos are private to the album owner
+-- (photos.user_id = album owner).
 -- ---------------------------------------------------------------------------
 INSERT INTO albums (user_id, title) VALUES
-  (1, 'Quiet Morning Walks'),  -- id 1 (shlomo)
-  (1, 'Workshop Snapshots'),   -- id 2 (shlomo)
+  (1, 'Quiet Morning Walks'),  -- id 1 (maoz)
+  (1, 'Workshop Snapshots'),   -- id 2 (maoz)
   (2, 'City Lights'),          -- id 3 (dana)
   (2, 'Coffee & Code'),        -- id 4 (dana)
   (3, 'Mountain Trails'),      -- id 5 (yossi)
-  (3, 'Seed Data Gallery');    -- id 6 (yossi)
+  (3, 'Seed Data Gallery'),    -- id 6 (yossi)
+  (1, 'Family Archive'),       -- id 7 (maoz)
+  (1, 'Campus Notes'),         -- id 8 (maoz)
+  (1, 'Weekend Projects'),     -- id 9 (maoz)
+  (1, 'Reference Shots');      -- id 10 (maoz)
 
 -- Photos use picsum.photos: /seed/<n>/600/600 (full) and /150/150 (thumbnail).
 -- album_id, user_id (= album owner), title, url, thumbnail_url.
@@ -72,6 +80,48 @@ INSERT INTO photos (album_id, user_id, title, url, thumbnail_url) VALUES
   (2, 1, 'Workbench mess',      'https://picsum.photos/seed/a2p5/600/600', 'https://picsum.photos/seed/a2p5/150/150'),
   (2, 1, 'Schematic sketch',    'https://picsum.photos/seed/a2p6/600/600', 'https://picsum.photos/seed/a2p6/150/150'),
   (2, 1, 'Tool drawer',         'https://picsum.photos/seed/a2p7/600/600', 'https://picsum.photos/seed/a2p7/150/150'),
+  (1, 1, 'Copper sunrise',       'https://picsum.photos/seed/a1p8/600/600', 'https://picsum.photos/seed/a1p8/150/150'),
+  (1, 1, 'Wet pavement',         'https://picsum.photos/seed/a1p9/600/600', 'https://picsum.photos/seed/a1p9/150/150'),
+  (1, 1, 'Garden gate',          'https://picsum.photos/seed/a1p10/600/600', 'https://picsum.photos/seed/a1p10/150/150'),
+  (1, 1, 'Quiet corner',         'https://picsum.photos/seed/a1p11/600/600', 'https://picsum.photos/seed/a1p11/150/150'),
+  (1, 1, 'Misty bridge',         'https://picsum.photos/seed/a1p12/600/600', 'https://picsum.photos/seed/a1p12/150/150'),
+  (1, 1, 'Sunlit trail',         'https://picsum.photos/seed/a1p13/600/600', 'https://picsum.photos/seed/a1p13/150/150'),
+  (1, 1, 'Wooden fence',         'https://picsum.photos/seed/a1p14/600/600', 'https://picsum.photos/seed/a1p14/150/150'),
+  (1, 1, 'Blue hour path',       'https://picsum.photos/seed/a1p15/600/600', 'https://picsum.photos/seed/a1p15/150/150'),
+  (1, 1, 'Soft rain',            'https://picsum.photos/seed/a1p16/600/600', 'https://picsum.photos/seed/a1p16/150/150'),
+  (1, 1, 'Small pond',           'https://picsum.photos/seed/a1p17/600/600', 'https://picsum.photos/seed/a1p17/150/150'),
+  (1, 1, 'Leaf shadows',         'https://picsum.photos/seed/a1p18/600/600', 'https://picsum.photos/seed/a1p18/150/150'),
+  (1, 1, 'Park lantern',         'https://picsum.photos/seed/a1p19/600/600', 'https://picsum.photos/seed/a1p19/150/150'),
+  (1, 1, 'Gravel bend',          'https://picsum.photos/seed/a1p20/600/600', 'https://picsum.photos/seed/a1p20/150/150'),
+  (1, 1, 'Morning steps',        'https://picsum.photos/seed/a1p21/600/600', 'https://picsum.photos/seed/a1p21/150/150'),
+  (1, 1, 'Fern wall',            'https://picsum.photos/seed/a1p22/600/600', 'https://picsum.photos/seed/a1p22/150/150'),
+  (1, 1, 'Red leaves',           'https://picsum.photos/seed/a1p23/600/600', 'https://picsum.photos/seed/a1p23/150/150'),
+  (1, 1, 'Long shadows',         'https://picsum.photos/seed/a1p24/600/600', 'https://picsum.photos/seed/a1p24/150/150'),
+  (1, 1, 'Water rail',           'https://picsum.photos/seed/a1p25/600/600', 'https://picsum.photos/seed/a1p25/150/150'),
+  (1, 1, 'Cloud break',          'https://picsum.photos/seed/a1p26/600/600', 'https://picsum.photos/seed/a1p26/150/150'),
+  (1, 1, 'Stone arch',           'https://picsum.photos/seed/a1p27/600/600', 'https://picsum.photos/seed/a1p27/150/150'),
+  (1, 1, 'Last morning lap',     'https://picsum.photos/seed/a1p28/600/600', 'https://picsum.photos/seed/a1p28/150/150'),
+  (2, 1, 'Oscilloscope trace',   'https://picsum.photos/seed/a2p8/600/600', 'https://picsum.photos/seed/a2p8/150/150'),
+  (2, 1, 'Component bins',       'https://picsum.photos/seed/a2p9/600/600', 'https://picsum.photos/seed/a2p9/150/150'),
+  (2, 1, 'Printed labels',       'https://picsum.photos/seed/a2p10/600/600', 'https://picsum.photos/seed/a2p10/150/150'),
+  (2, 1, 'Desk lamp',            'https://picsum.photos/seed/a2p11/600/600', 'https://picsum.photos/seed/a2p11/150/150'),
+  (2, 1, 'Cable tester',         'https://picsum.photos/seed/a2p12/600/600', 'https://picsum.photos/seed/a2p12/150/150'),
+  (2, 1, 'Power supply',         'https://picsum.photos/seed/a2p13/600/600', 'https://picsum.photos/seed/a2p13/150/150'),
+  (2, 1, 'Serial monitor',       'https://picsum.photos/seed/a2p14/600/600', 'https://picsum.photos/seed/a2p14/150/150'),
+  (2, 1, 'Debug notes',          'https://picsum.photos/seed/a2p15/600/600', 'https://picsum.photos/seed/a2p15/150/150'),
+  (2, 1, 'Spare sensors',        'https://picsum.photos/seed/a2p16/600/600', 'https://picsum.photos/seed/a2p16/150/150'),
+  (2, 1, 'Jumper rainbow',       'https://picsum.photos/seed/a2p17/600/600', 'https://picsum.photos/seed/a2p17/150/150'),
+  (2, 1, 'Heat shrink',          'https://picsum.photos/seed/a2p18/600/600', 'https://picsum.photos/seed/a2p18/150/150'),
+  (2, 1, 'Open enclosure',       'https://picsum.photos/seed/a2p19/600/600', 'https://picsum.photos/seed/a2p19/150/150'),
+  (2, 1, 'Prototype stack',      'https://picsum.photos/seed/a2p20/600/600', 'https://picsum.photos/seed/a2p20/150/150'),
+  (2, 1, 'Tiny screws',          'https://picsum.photos/seed/a2p21/600/600', 'https://picsum.photos/seed/a2p21/150/150'),
+  (2, 1, 'Label maker',          'https://picsum.photos/seed/a2p22/600/600', 'https://picsum.photos/seed/a2p22/150/150'),
+  (2, 1, 'Sensor board',         'https://picsum.photos/seed/a2p23/600/600', 'https://picsum.photos/seed/a2p23/150/150'),
+  (2, 1, 'Bench notebook',       'https://picsum.photos/seed/a2p24/600/600', 'https://picsum.photos/seed/a2p24/150/150'),
+  (2, 1, 'Firmware checklist',   'https://picsum.photos/seed/a2p25/600/600', 'https://picsum.photos/seed/a2p25/150/150'),
+  (2, 1, 'Power leads',          'https://picsum.photos/seed/a2p26/600/600', 'https://picsum.photos/seed/a2p26/150/150'),
+  (2, 1, 'Final inspection',     'https://picsum.photos/seed/a2p27/600/600', 'https://picsum.photos/seed/a2p27/150/150'),
+  (2, 1, 'Packed prototype',     'https://picsum.photos/seed/a2p28/600/600', 'https://picsum.photos/seed/a2p28/150/150'),
   (3, 2, 'Neon alley',          'https://picsum.photos/seed/a3p1/600/600', 'https://picsum.photos/seed/a3p1/150/150'),
   (3, 2, 'Skyline dusk',        'https://picsum.photos/seed/a3p2/600/600', 'https://picsum.photos/seed/a3p2/150/150'),
   (3, 2, 'Crosswalk',           'https://picsum.photos/seed/a3p3/600/600', 'https://picsum.photos/seed/a3p3/150/150'),

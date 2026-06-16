@@ -1,6 +1,6 @@
 // Data-access layer for albums (Stage F bonus). Albums are PRIVATE to their owner:
 // every list/read is scoped by user_id, so callers must pass the active user's id.
-// Owns the soft-delete cascade to photos (mirrors db/posts.js -> comments).
+// Owns the soft-delete cascade to photos (mirrors server/db/posts.js -> comments).
 const { query } = require('./connection');
 
 // List a user's active albums, optional ?q= title search, paginated.

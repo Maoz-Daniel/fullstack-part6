@@ -14,7 +14,7 @@ const updateSchema = Joi.object({
 // arrive as strings, so Joi coerces page/limit to numbers (convert is on by default).
 const listQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(50).default(6),
+  limit: Joi.number().integer().min(1).max(50).default(3),
   q: Joi.string().allow('').default(''),
 });
 

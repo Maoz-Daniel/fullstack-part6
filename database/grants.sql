@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Project 6 — Stage A: privileges (the DB-level access restriction)
--- Run as root AFTER db/schema.sql (the procedures must already exist):
---   mysql -u root -p < db/grants.sql
+-- Run as root AFTER database/schema.sql (the procedures must already exist):
+--   mysql -u root -p < database/grants.sql
 --
 -- app_user is the account the running app connects as. It gets CRUD on the four
 -- resource tables but NO privileges of any kind on users_passwords. Credential
@@ -18,6 +18,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON project6.posts    TO 'app_user'@'localho
 GRANT SELECT, INSERT, UPDATE, DELETE ON project6.comments TO 'app_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE ON project6.albums   TO 'app_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE ON project6.photos   TO 'app_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON project6.user_actions TO 'app_user'@'localhost';
 
 -- Deliberately NO grant of any kind on project6.users_passwords.
 

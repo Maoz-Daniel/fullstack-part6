@@ -5,6 +5,7 @@ client/node_modules/
 .env.local
 
 config.js
+server/config.js
 
 client/build/
 client/dist/

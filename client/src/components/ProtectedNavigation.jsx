@@ -24,6 +24,11 @@ export function ProtectedNavigation({ user, onLogout }) {
         <NavLink className={getNavClass} to={`${basePath}/albums`}>
           Albums
         </NavLink>
+        {user.is_admin ? (
+          <NavLink className={getNavClass} to={`${basePath}/admin`}>
+            Admin
+          </NavLink>
+        ) : null}
         <Link className="nav-link" to={`${location.pathname}#user-info`}>
           Info
         </Link>

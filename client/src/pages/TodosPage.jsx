@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { createTodo, deleteTodo, getTodos, updateTodo } from '../services/todosService.js';
+import { usePaginatedItems } from '../hooks/usePaginatedItems.js';
+import { createTodo, deleteTodo, getTodosPage, updateTodo } from '../services/todosService.js';
 
 const FILTERS = [
   { label: 'All', value: 'all' },
@@ -25,7 +26,14 @@ function sortTodos(todos) {
 
 export function TodosPage() {
   const { user } = useOutletContext();
-  const [todos, setTodos] = useState([]);
+  const {
+    items: todos,
+    setItems: setTodos,
+    nextPage,
+    isLoadingMore,
+    loadMore,
+    replaceFirstPage,
+  } = usePaginatedItems([], null);
   const [filter, setFilter] = useState('all');
   const [newTitle, setNewTitle] = useState('');
   const [editingId, setEditingId] = useState(null);
@@ -43,13 +51,13 @@ export function TodosPage() {
       setError('');
 
       try {
-        const list = await getTodos({
+        const pageData = await getTodosPage({
           userId: user.id,
           completed: getCompletedFilter(filter),
         });
 
         if (!ignore) {
-          setTodos(list);
+          replaceFirstPage(pageData);
         }
       } catch (err) {
         if (!ignore) {
@@ -67,7 +75,18 @@ export function TodosPage() {
     return () => {
       ignore = true;
     };
-  }, [filter, user.id]);
+  }, [filter, replaceFirstPage, user.id]);
+
+  function handleLoadMore() {
+    setError('');
+    loadMore((page) =>
+      getTodosPage({
+        userId: user.id,
+        completed: getCompletedFilter(filter),
+        page,
+      })
+    ).catch((err) => setError(err.message));
+  }
 
   async function handleCreate(event) {
     event.preventDefault();
@@ -284,6 +303,19 @@ export function TodosPage() {
             );
           })}
         </ul>
+      ) : null}
+
+      {!loading && nextPage ? (
+        <div className="load-more">
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? 'Loading...' : 'Load more'}
+          </button>
+        </div>
       ) : null}
     </section>
   );

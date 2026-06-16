@@ -2,7 +2,9 @@
 // enforce ownership via req.activeUserId.
 const express = require('express');
 const todos = require('../db/todos');
+const { safeLogAction } = require('../db/userActions');
 const { authenticateToken } = require('../middleware/authenticateToken');
+const { sendPaginated } = require('../middleware/pagination');
 const { createSchema, updateSchema, listQuerySchema } = require('../validation/todoSchemas');
 
 const router = express.Router();
@@ -12,8 +14,15 @@ router.get('/', async (req, res) => {
   const { error, value } = listQuerySchema.validate(req.query);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const list = await todos.listTodos({ userId: value.userId, completed: value.completed });
-  res.json(list);
+  const { page, limit, userId, completed } = value;
+  const rows = await todos.listTodos({
+    userId,
+    completed,
+    limit,
+    offset: (page - 1) * limit,
+  });
+
+  sendPaginated(req, res, rows, { page, limit, query: value });
 });
 
 // GET /todos/:id -> single active todo, or 404.
@@ -34,6 +43,15 @@ router.post('/', authenticateToken, async (req, res) => {
     completed: value.completed,
   });
 
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'todo_create',
+    resourceType: 'todo',
+    resourceId: created.id,
+    details: `created todo ${created.id}`,
+  });
+
   return res.status(201).json(created);
 });
 
@@ -49,6 +67,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 
   const updated = await todos.updateTodo(req.params.id, value);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'todo_update',
+    resourceType: 'todo',
+    resourceId: updated.id,
+    details: `updated todo ${updated.id}`,
+  });
   res.json(updated);
 });
 
@@ -61,6 +87,14 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 
   await todos.softDeleteTodo(req.params.id);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'todo_delete',
+    resourceType: 'todo',
+    resourceId: todo.id,
+    details: `deleted todo ${todo.id}`,
+  });
   res.json(todo);
 });
 

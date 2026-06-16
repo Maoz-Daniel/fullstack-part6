@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 // Merge incoming items after the current ones, skipping any whose id is already present
 // (guards against duplicates if a page overlaps).
@@ -16,13 +16,13 @@ export function usePaginatedItems(initialItems = [], initialNextPage = null) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Replace the whole list with a fresh first page (e.g. after a filter/search change).
-  function replaceFirstPage(pageData) {
+  const replaceFirstPage = useCallback((pageData) => {
     setItems(pageData.data);
     setNextPage(pageData.nextPage);
-  }
+  }, []);
 
   // Append the next page, if any.
-  async function loadMore(fetchPage) {
+  const loadMore = useCallback(async (fetchPage) => {
     if (!nextPage || isLoadingMore) return null;
 
     setIsLoadingMore(true);
@@ -34,7 +34,7 @@ export function usePaginatedItems(initialItems = [], initialNextPage = null) {
     } finally {
       setIsLoadingMore(false);
     }
-  }
+  }, [isLoadingMore, nextPage]);
 
   return {
     items,

@@ -7,7 +7,7 @@ export function ProtectedLayout() {
   const { username } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, login, logout } = useAuth();
   const shouldShowInfo = location.hash === '#user-info';
 
   if (!user) {
@@ -23,12 +23,24 @@ export function ProtectedLayout() {
     navigate('/login', { replace: true });
   }
 
+  function handleUsernameChange(nextUsername, currentPath) {
+    const nextPath = currentPath.replace(`/users/${username}`, `/users/${nextUsername}`);
+    navigate(`${nextPath}#user-info`, { replace: true });
+  }
+
   return (
     <main className="app app--protected">
       <section className="workspace">
         <ProtectedNavigation user={user} onLogout={handleLogout} />
-        <Outlet context={{ user }} />
-        {shouldShowInfo ? <UserInfoPanel user={user} /> : null}
+        <Outlet context={{ user, updateSession: login }} />
+        {shouldShowInfo ? (
+          <UserInfoPanel
+            user={user}
+            updateSession={login}
+            currentPath={location.pathname}
+            onUsernameChange={handleUsernameChange}
+          />
+        ) : null}
       </section>
     </main>
   );

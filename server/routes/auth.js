@@ -2,24 +2,13 @@
 // All credential work goes through the SQL SECURITY DEFINER procedures
 // (sp_set_password / sp_verify_login). App code never touches users_passwords.
 const express = require('express');
-const jwt = require('jsonwebtoken');
 const users = require('../db/users');
 const { query } = require('../db/connection');
-const config = require('../config');
+const { safeLogAction } = require('../db/userActions');
+const { createAuthToken } = require('../utils/createAuthToken');
 const { registerSchema, loginSchema } = require('../validation/authSchemas');
 
 const router = express.Router();
-
-function createAuthToken(user) {
-  return jwt.sign(
-    {
-      id: user.id,
-      username: user.username,
-    },
-    config.jwt.secret,
-    { expiresIn: config.jwt.expiresIn }
-  );
-}
 
 // POST /register -> create the user, then set its password via sp_set_password.
 // The INSERT + CALL run in one transaction so a username can't be reserved with no
@@ -30,6 +19,14 @@ router.post('/register', async (req, res) => {
 
   try {
     const created = await users.createUser(value);
+    await safeLogAction({
+      actorUserId: created.id,
+      targetUserId: created.id,
+      actionType: 'register',
+      resourceType: 'user',
+      resourceId: created.id,
+      details: `registered ${created.username}`,
+    });
     return res.status(201).json(created);
   } catch (err) {
     // username/email are UNIQUE across all rows -> reserved identities.
@@ -52,6 +49,23 @@ router.post('/login', async (req, res) => {
   const rows = result[0]; // CALL nests the proc's SELECT rows under index 0
 
   if (rows.length !== 1) {
+    const existingUser = await users.getUserByUsername(username);
+    if (existingUser?.blocked_at) {
+      await safeLogAction({
+        targetUserId: existingUser.id,
+        actionType: 'login_failed',
+        resourceType: 'auth',
+        resourceId: existingUser.id,
+        details: `blocked login attempt for ${username}`,
+      });
+      return res.status(403).json({ error: 'This account is blocked. Please contact an administrator.' });
+    }
+
+    await safeLogAction({
+      actionType: 'login_failed',
+      resourceType: 'auth',
+      details: `failed login for ${username}`,
+    });
     return res.status(401).json({ error: 'Invalid username or password' });
   }
 

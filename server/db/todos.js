@@ -4,7 +4,7 @@ const { query } = require('./connection');
 
 // List active todos, optionally filtered by userId and/or completed. The WHERE clause
 // and params are built dynamically from whichever filters were provided.
-async function listTodos({ userId, completed } = {}) {
+async function listTodos({ userId, completed, limit, offset } = {}) {
   const where = ['deleted_at IS NULL'];
   const params = [];
   if (userId !== undefined) {
@@ -15,10 +15,17 @@ async function listTodos({ userId, completed } = {}) {
     where.push('completed = ?');
     params.push(completed ? 1 : 0);
   }
+
+  const paginationSql = limit !== undefined && offset !== undefined ? 'LIMIT ? OFFSET ?' : '';
+  if (paginationSql) {
+    params.push(limit + 1, offset);
+  }
+
   return query(
     `SELECT id, user_id, title, completed FROM todos
      WHERE ${where.join(' AND ')}
-     ORDER BY id`,
+     ORDER BY id
+     ${paginationSql}`,
     params
   );
 }

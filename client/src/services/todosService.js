@@ -18,6 +18,27 @@ export async function getTodos({ userId, completed }) {
   return todos.map(normalizeTodo);
 }
 
+export async function getTodosPage({ userId, completed, page = 1, limit = 5 }) {
+  const params = new URLSearchParams({
+    userId: String(userId),
+    page: String(page),
+    limit: String(limit),
+  });
+
+  if (completed !== undefined) {
+    params.set('completed', String(completed));
+  }
+
+  const { data, nextPage } = await apiClient(`/todos?${params.toString()}`, {
+    withPagination: true,
+  });
+
+  return {
+    data: data.map(normalizeTodo),
+    nextPage,
+  };
+}
+
 export async function createTodo(payload) {
   const todo = await apiClient('/todos', {
     method: 'POST',

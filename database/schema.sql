@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Project 6 — Stage A: schema (tables + stored procedures)
--- Run as a privileged user (root):  mysql -u root -p < db/schema.sql
--- Then run db/grants.sql, then db/seed.sql.
+-- Run as a privileged user (root):  mysql -u root -p < database/schema.sql
+-- Then run database/grants.sql, then database/seed.sql.
 -- ============================================================================
 
 CREATE DATABASE IF NOT EXISTS project6
@@ -13,6 +13,7 @@ DROP PROCEDURE IF EXISTS sp_verify_login;
 DROP PROCEDURE IF EXISTS sp_set_password;
 DROP TABLE IF EXISTS photos;
 DROP TABLE IF EXISTS albums;
+DROP TABLE IF EXISTS user_actions;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS todos;
@@ -26,7 +27,7 @@ DROP TABLE IF EXISTS users;
 CREATE TABLE users (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   name       VARCHAR(100) NOT NULL,
-  username   VARCHAR(50)  NOT NULL UNIQUE,    -- used in URLs (/users/shlomo/posts)
+  username   VARCHAR(50)  NOT NULL UNIQUE,    -- used in URLs (/users/maoz/posts)
   email      VARCHAR(255) NOT NULL UNIQUE,
   phone      VARCHAR(30),
   website    VARCHAR(255),
@@ -97,7 +98,7 @@ CREATE TABLE albums (
 
 -- ---------------------------------------------------------------------------
 -- PHOTOS: many per album, owned by a user (author = album owner). PRIVATE too.
--- Soft-deleting an album cascades to its photos in server code (see db/albums.js).
+-- Soft-deleting an album cascades to its photos in server code (see server/db/albums.js).
 -- ---------------------------------------------------------------------------
 CREATE TABLE photos (
   id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -112,9 +113,26 @@ CREATE TABLE photos (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------------
+-- USER ACTIONS: audit log for major account/admin/user activity.
+-- Stores summaries only; never store passwords, hashes, salts, or full sensitive content.
+-- ---------------------------------------------------------------------------
+CREATE TABLE user_actions (
+  id             INT AUTO_INCREMENT PRIMARY KEY,
+  actor_user_id  INT          NULL,
+  target_user_id INT          NULL,
+  action_type    VARCHAR(50)  NOT NULL,
+  resource_type  VARCHAR(50)  NULL,
+  resource_id    INT          NULL,
+  details        VARCHAR(255) NULL,
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_action_actor  FOREIGN KEY (actor_user_id)  REFERENCES users(id),
+  CONSTRAINT fk_action_target FOREIGN KEY (target_user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------------
 -- Stored procedures for credential access (SQL SECURITY DEFINER).
 -- The app connects as app_user, which has NO direct rights on users_passwords
--- and can only CALL these (see db/grants.sql).
+-- and can only CALL these (see database/grants.sql).
 --
 -- TODO (deferred hardening): these rely on the implicit root definer. Later,
 -- create a dedicated minimally-privileged definer (e.g. 'auth_definer'@'localhost')

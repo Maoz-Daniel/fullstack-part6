@@ -2,7 +2,7 @@
 const { query } = require('./connection');
 
 // List active posts, optionally filtered by userId.
-async function listPosts({ userId } = {}) {
+async function listPosts({ userId, limit, offset } = {}) {
   const where = ['posts.deleted_at IS NULL'];
   const params = [];
 
@@ -11,12 +11,18 @@ async function listPosts({ userId } = {}) {
     params.push(userId);
   }
 
+  const paginationSql = limit !== undefined && offset !== undefined ? 'LIMIT ? OFFSET ?' : '';
+  if (paginationSql) {
+    params.push(limit + 1, offset);
+  }
+
   return query(
     `SELECT posts.id, posts.user_id, users.email AS user_email, posts.title, posts.body
      FROM posts
      JOIN users ON users.id = posts.user_id
      WHERE ${where.join(' AND ')}
-     ORDER BY posts.id`,
+     ORDER BY posts.id
+     ${paginationSql}`,
     params
   );
 }

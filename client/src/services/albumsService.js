@@ -2,7 +2,7 @@ import { apiClient } from './apiClient.js';
 import { getCached, setCached, deleteByPrefix } from './cacheStore.js';
 import { readSessionUser } from '../utils/session.js';
 
-export const ALBUM_PAGE_SIZE = 6;
+export const ALBUM_PAGE_SIZE = 3;
 
 function normalizeAlbum(album) {
   return {

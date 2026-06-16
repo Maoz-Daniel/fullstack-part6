@@ -2,6 +2,7 @@
 const express = require('express');
 const comments = require('../db/comments');
 const posts = require('../db/posts');
+const { safeLogAction } = require('../db/userActions');
 const { authenticateToken } = require('../middleware/authenticateToken');
 const { createSchema, updateSchema, listQuerySchema } = require('../validation/commentSchemas');
 
@@ -39,6 +40,14 @@ router.post('/', authenticateToken, async (req, res) => {
     body: value.body,
   });
 
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'comment_create',
+    resourceType: 'comment',
+    resourceId: created.id,
+    details: `created comment ${created.id} on post ${created.post_id}`,
+  });
   res.status(201).json(created);
 });
 
@@ -54,6 +63,14 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 
   const updated = await comments.updateComment(req.params.id, value);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'comment_update',
+    resourceType: 'comment',
+    resourceId: updated.id,
+    details: `updated comment ${updated.id}`,
+  });
   res.json(updated);
 });
 
@@ -66,6 +83,14 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 
   await comments.softDeleteComment(req.params.id);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'comment_delete',
+    resourceType: 'comment',
+    resourceId: existing.id,
+    details: `deleted comment ${existing.id}`,
+  });
   res.json(existing);
 });
 

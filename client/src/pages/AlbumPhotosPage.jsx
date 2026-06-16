@@ -171,13 +171,24 @@ export function AlbumPhotosPage() {
         <div>
           <p className="eyebrow">Photos</p>
           <h2>{album ? album.title : 'Album'}</h2>
+          <p className="album-photo-meta">
+            Album #{albumId}
+            {album ? ` · ${album.photo_count} total photos` : ''}
+            {photos.length ? ` · ${photos.length} loaded` : ''}
+          </p>
         </div>
-        <Link className="button button--secondary" to={`/users/${user.username}/albums`}>
-          Back to albums
-        </Link>
+        <div className="photos-heading-actions">
+          <Link className="button button--secondary" to={`/users/${user.username}/albums`}>
+            Back to albums
+          </Link>
+        </div>
       </div>
 
       <form className="photo-create-form" onSubmit={handleCreate}>
+        <div className="photo-create-form__intro">
+          <strong>Add a photo</strong>
+          <span>Use a full image URL and a smaller thumbnail URL for the grid.</span>
+        </div>
         <label className="form-field">
           <span>Title</span>
           <input name="title" value={photoForm.title} onChange={handlePhotoFormChange} />
@@ -254,7 +265,12 @@ export function AlbumPhotosPage() {
                       <img src={photo.thumbnail_url} alt={photo.title} loading="lazy" />
                     </a>
                     <div className="photo-card__body">
-                      <span className="photo-id">#{photo.id}</span>
+                      <div className="photo-card__meta">
+                        <span className="photo-id">#{photo.id}</span>
+                        <a href={photo.url} target="_blank" rel="noreferrer">
+                          Full image
+                        </a>
+                      </div>
                       <p className="photo-card__title">{photo.title}</p>
                       {canManage ? (
                         <div className="photo-card__actions">

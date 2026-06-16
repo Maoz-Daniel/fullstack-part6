@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { usePaginatedItems } from '../hooks/usePaginatedItems.js';
 import {
   createComment,
   createPost,
   deleteComment,
   deletePost,
   getComments,
-  getPosts,
+  getPostsPage,
   updateComment,
   updatePost,
 } from '../services/postsService.js';
@@ -33,7 +34,14 @@ function getUserDisplayName(item, activeUser) {
 
 export function PostsPage() {
   const { user } = useOutletContext();
-  const [posts, setPosts] = useState([]);
+  const {
+    items: posts,
+    setItems: setPosts,
+    nextPage,
+    isLoadingMore,
+    loadMore,
+    replaceFirstPage,
+  } = usePaginatedItems([], null);
   const [postViewMode, setPostViewMode] = useState('mine');
   const [postForm, setPostForm] = useState(EMPTY_POST_FORM);
   const [editingPostId, setEditingPostId] = useState(null);
@@ -56,9 +64,9 @@ export function PostsPage() {
       setError('');
 
       try {
-        const list = await getPosts({ userId: postViewMode === 'mine' ? user.id : undefined });
+        const pageData = await getPostsPage({ userId: postViewMode === 'mine' ? user.id : undefined });
         if (!ignore) {
-          setPosts(list);
+          replaceFirstPage(pageData);
         }
       } catch (err) {
         if (!ignore) {
@@ -76,7 +84,17 @@ export function PostsPage() {
     return () => {
       ignore = true;
     };
-  }, [postViewMode, user.id]);
+  }, [postViewMode, replaceFirstPage, user.id]);
+
+  function handleLoadMore() {
+    setError('');
+    loadMore((page) =>
+      getPostsPage({
+        userId: postViewMode === 'mine' ? user.id : undefined,
+        page,
+      })
+    ).catch((err) => setError(err.message));
+  }
 
   function resetPostInteractionState() {
     setEditingPostId(null);
@@ -519,6 +537,19 @@ export function PostsPage() {
             );
           })}
         </ul>
+      ) : null}
+
+      {!loading && nextPage ? (
+        <div className="load-more">
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? 'Loading...' : 'Load more'}
+          </button>
+        </div>
       ) : null}
     </section>
   );

@@ -27,6 +27,26 @@ export async function getPosts({ userId } = {}) {
   return posts.map(normalizePost);
 }
 
+export async function getPostsPage({ userId, page = 1, limit = 5 } = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+
+  if (userId !== undefined && userId !== null) {
+    params.set('userId', String(userId));
+  }
+
+  const { data, nextPage } = await apiClient(`/posts?${params.toString()}`, {
+    withPagination: true,
+  });
+
+  return {
+    data: data.map(normalizePost),
+    nextPage,
+  };
+}
+
 export async function createPost(payload) {
   const post = await apiClient('/posts', {
     method: 'POST',

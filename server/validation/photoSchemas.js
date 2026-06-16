@@ -18,7 +18,7 @@ const updateSchema = Joi.object({
 const listQuerySchema = Joi.object({
   albumId: Joi.number().integer().positive(),
   page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(50).default(6),
+  limit: Joi.number().integer().min(1).max(50).default(8),
 });
 
 module.exports = { createSchema, updateSchema, listQuerySchema };

@@ -1,7 +1,7 @@
 import { apiClient } from './apiClient.js';
 import { getCached, setCached, deleteByPrefix } from './cacheStore.js';
 
-export const PHOTO_PAGE_SIZE = 6;
+export const PHOTO_PAGE_SIZE = 8;
 
 function normalizePhoto(photo) {
   return {

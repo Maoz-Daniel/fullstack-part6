@@ -8,6 +8,22 @@ import {
   updateAlbum,
 } from '../services/albumsService.js';
 
+function formatPhotoCount(count) {
+  return count === 1 ? '1 photo' : `${count} photos`;
+}
+
+function AlbumIcon() {
+  return (
+    <svg aria-hidden="true" className="album-card__icon" viewBox="0 0 120 120">
+      <rect className="album-card__icon-back" x="20" y="16" width="70" height="88" rx="10" />
+      <rect className="album-card__icon-front" x="30" y="26" width="70" height="88" rx="10" />
+      <path className="album-card__icon-line" d="M48 50h34" />
+      <path className="album-card__icon-line" d="M48 66h26" />
+      <circle className="album-card__icon-dot" cx="82" cy="88" r="8" />
+    </svg>
+  );
+}
+
 export function AlbumsPage() {
   const { user } = useOutletContext();
   const {
@@ -141,6 +157,12 @@ export function AlbumsPage() {
         <p className="todo-count">{albums.length} shown</p>
       </div>
 
+      <div className="albums-summary">
+        <p>
+          Browse private albums, search by title, and open an album to manage its photos.
+        </p>
+      </div>
+
       <form className="album-create-form" onSubmit={handleCreate}>
         <label className="form-field album-create-form__field">
           <span>New album</span>
@@ -198,9 +220,8 @@ export function AlbumsPage() {
 
             return (
               <li className="album-card" key={album.id}>
-                <div className="album-card__meta">
-                  <span className="album-id">#{album.id}</span>
-                  <span className="album-card__count">{album.photo_count} photos</span>
+                <div className="album-card__cover">
+                  <AlbumIcon />
                 </div>
 
                 {isEditing ? (
@@ -227,16 +248,22 @@ export function AlbumsPage() {
                   </form>
                 ) : (
                   <>
-                    <h3 className="album-card__title">{album.title}</h3>
-                    <div className="album-card__actions">
+                    <div className="album-card__content">
+                      <div className="album-card__meta">
+                        <span className="album-id">#{album.id}</span>
+                        <span className="album-card__count">{formatPhotoCount(album.photo_count)}</span>
+                      </div>
+                      <h3 className="album-card__title">{album.title}</h3>
+                    </div>
+                    <div className="album-card__actions album-card__actions--stacked">
                       <Link
-                        className="button"
+                        className="button album-open-button"
                         to={`/users/${user.username}/albums/${album.id}/photos`}
                       >
                         Open photos
                       </Link>
                       {canManage ? (
-                        <>
+                        <div className="album-card__manage-actions">
                           <button
                             className="button button--secondary"
                             type="button"
@@ -253,7 +280,7 @@ export function AlbumsPage() {
                           >
                             Delete
                           </button>
-                        </>
+                        </div>
                       ) : null}
                     </div>
                   </>

@@ -3,6 +3,7 @@
 // visible - even with a hand-typed id in the URL.
 const express = require('express');
 const albums = require('../db/albums');
+const { safeLogAction } = require('../db/userActions');
 const { authenticateToken } = require('../middleware/authenticateToken');
 const { sendPaginated } = require('../middleware/pagination');
 const { createSchema, updateSchema, listQuerySchema } = require('../validation/albumSchemas');
@@ -44,6 +45,14 @@ router.post('/', async (req, res) => {
   if (error) return res.status(400).json({ error: error.details[0].message });
 
   const created = await albums.createAlbum({ userId: req.activeUserId, title: value.title });
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'album_create',
+    resourceType: 'album',
+    resourceId: created.id,
+    details: `created album ${created.id}`,
+  });
   res.status(201).json(created);
 });
 
@@ -58,6 +67,14 @@ router.put('/:id', async (req, res) => {
   }
 
   const updated = await albums.updateAlbum(req.params.id, value);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'album_update',
+    resourceType: 'album',
+    resourceId: updated.id,
+    details: `updated album ${updated.id}`,
+  });
   res.json(updated);
 });
 
@@ -69,6 +86,14 @@ router.delete('/:id', async (req, res) => {
   }
 
   await albums.softDeleteAlbum(req.params.id);
+  await safeLogAction({
+    actorUserId: req.activeUserId,
+    targetUserId: req.activeUserId,
+    actionType: 'album_delete',
+    resourceType: 'album',
+    resourceId: existing.id,
+    details: `deleted album ${existing.id}`,
+  });
   res.json(existing);
 });
 

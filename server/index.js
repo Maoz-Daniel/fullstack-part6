@@ -21,6 +21,7 @@ app.use('/posts', require('./routes/posts'));
 app.use('/comments', require('./routes/comments'));
 app.use('/albums', require('./routes/albums'));
 app.use('/photos', require('./routes/photos'));
+app.use('/admin', require('./routes/admin'));
 app.use(require('./routes/auth')); // /register, /login
 
 app.use(notFound);      // 404 for unmatched routes

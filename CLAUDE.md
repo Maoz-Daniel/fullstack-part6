@@ -33,7 +33,7 @@ knowledge where this doc specifies an approach.
 
 ### Client
 - Pages: `/login` and `/register`, plus an authenticated app area with informative internal
-  URLs (e.g. `/users`, `/shlomo/posts`).
+  URLs (e.g. `/users`, `/maoz/posts`).
 
 ### Auth
 - A valid user is one that exists in the DB with a **matching password**.
@@ -42,8 +42,16 @@ knowledge where this doc specifies an approach.
 - **Info** button shows the user's personal info (**never** the password).
 - **Logout** clears Local Storage and returns to login.
 
+## Project structure
+- **Client code lives in `client/`.** React/Vite application, services, pages, routing, and styles.
+- **Server code lives in `server/`.** Entry point `server/index.js`, with `server/routes/`,
+  `server/middleware/`, `server/validation/`, `server/utils/`, and `server/db/`.
+- **Database setup scripts live in `database/`.** `database/schema.sql`,
+  `database/grants.sql`, and `database/seed.sql` are infrastructure scripts, not runtime
+  server modules.
+
 ## Locked decisions (Stage A)
-Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't duplicate them here.
+Schema/seed live in `database/schema.sql`, `database/grants.sql`, `database/seed.sql` - don't duplicate them here.
 
 - **Soft delete everywhere.** Each resource table (users, todos, posts, comments) has
   `deleted_at DATETIME NULL`. "Delete" = set `deleted_at = NOW()`; **every** read filters
@@ -51,7 +59,8 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
 - **User states: active / blocked / deleted.** Tracked by two independent timestamps
   (`deleted_at`, `blocked_at`) - never collapse them into one flag. A blocked **or** deleted
   user cannot log in.
-- **Admin.** `users.is_admin` marks a privileged account.
+- **Admin.** `users.is_admin` marks a privileged account. Seed data uses a separate
+  `admin` user for administration; `maoz` is a regular user.
 - **Password storage.** Hashed as `SHA2(CONCAT(salt, password), 256)` with a per-row salt,
   stored **only** in the separate `users_passwords` table. Never plaintext, never in `users`.
 - **Credentials access.** The app connects as `app_user`, which has **no** rights on
@@ -70,14 +79,15 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
   authenticate at all. `mysql2` is a drop-in - we keep the same **callback API** and the
   `util.promisify`-wrapped query helper; only the `require` changed. `fullstack_context.md`
   is the canonical course reference and is left as-is; this deviation lives only here.
-- **Server lives at the repo root.** Entry `index.js`; `routes/`, `middleware/`,
-  `validation/` alongside it. The React app stays in `client/`.
-- **DB credentials in a gitignored `config.js`.** `config.example.js` (committed)
-  documents the shape; the real `config.js` holds the `app_user` password and is never
+- **Server lives under `server/`.** Entry `server/index.js`; `server/routes/`,
+  `server/middleware/`, `server/validation/`, `server/utils/`, and `server/db/` are runtime
+  server code. The React app stays in `client/`.
+- **DB credentials in a gitignored `server/config.js`.** `server/config.example.js` (committed)
+  documents the shape; the real `server/config.js` holds the `app_user` password and is never
   committed.
-- **JWT config in `config.js`.** `config.example.js` documents `jwt.secret` and
-  `jwt.expiresIn`; the real secret stays only in the gitignored `config.js`.
-- **One promisified connection.** `db/connection.js` opens a single `app_user` connection
+- **JWT config in `server/config.js`.** `server/config.example.js` documents `jwt.secret` and
+  `jwt.expiresIn`; the real secret stays only in the gitignored `server/config.js`.
+- **One promisified connection.** `server/db/connection.js` opens a single `app_user` connection
   and exports a `util.promisify`-wrapped `query()` helper; all routes use `async/await`
   with `?` placeholders. `CALL sp_*` returns the proc's rows under `result[0]`.
 - **Registration is atomic.** `POST /register` wraps `INSERT users` + `CALL sp_set_password`
@@ -85,6 +95,20 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
   usable password.
 - **Login issues JWTs.** `POST /login` calls `sp_verify_login` and returns `{ user, token }`
   on success. The JWT payload is minimal: `id`, `username`.
+- **Profile update refreshes JWTs.** `PUT /users/:id` returns `{ user, token }` so a
+  username change updates both Local Storage and the JWT without forcing a new login.
+- **Password changes use the existing DB hashing path.** `PUT /users/:id/password` verifies
+  `currentPassword` through `sp_verify_login`, then calls `sp_set_password` for the new
+  password. No bcrypt is introduced unless the whole login/register/password stack migrates.
+- **User action summaries.** Major account actions are written to `user_actions` as short
+  summaries only. Successful logins are not logged because they flood the admin screen;
+  failed logins are logged. The table is created by `database/schema.sql` and granted in
+  `database/grants.sql`.
+- **Admin management lives under `/admin`.** Authenticated admin-only routes expose:
+  `GET /admin/users`, `PUT /admin/users/:id/block`, `PUT /admin/users/:id/unblock`,
+  and paginated `GET /admin/actions`.
+- **Admin safety rules.** Admin users cannot be blocked through the admin routes, and an
+  admin cannot block their own account.
 - **Authenticated writes use `Authorization: Bearer ...`.** The client sends the JWT on API
   requests, and Express resolves the authenticated user from the token into
   `req.activeUserId` / `req.activeUser`.
@@ -93,11 +117,11 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
 - **Error/status conventions.** Joi-validated input (`400` on failure); duplicate
   identity -> `409`; unmatched route -> `404`; everything else flows through one central
   error handler (`500`). Errors are JSON: `{ "error": "..." }`.
-- **Per-resource DB modules.** Each resource gets its own data-access module under `db/`
-  (e.g. `db/todos.js`) exporting plain `async` functions that wrap the SQL; route files
+- **Per-resource DB modules.** Each resource gets its own data-access module under `server/db/`
+  (e.g. `server/db/todos.js`) exporting plain `async` functions that wrap the SQL; route files
   import these and stay thin (validate -> call -> respond). Reads filter
   `deleted_at IS NULL`; DELETE reads the row, returns it, then stamps `deleted_at`
-  (soft delete). The shared `query()` helper in `db/connection.js` is unchanged. This is
+  (soft delete). The shared `query()` helper in `server/db/connection.js` is unchanged. This is
   the template for all resources.
 
 ## Locked decisions (Stage C)
@@ -151,11 +175,11 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
   comments once via `getComments({ postId })` and stores them under `commentsByPostId[postId]`;
   reopening reuses the cache. This keeps client↔server round-trips down (the Stage F
   performance goal).
-- **List/read responses carry the author's email (`user_email`).** `db/posts.js` and
-  `db/comments.js` `JOIN users` and select `users.email AS user_email` on every read, so the
+- **List/read responses carry the author's email (`user_email`).** `server/db/posts.js` and
+  `server/db/comments.js` `JOIN users` and select `users.email AS user_email` on every read, so the
   client can show who wrote a post/comment without a second request. `services/postsService.js`
   normalizes `id` / `user_id` / `post_id` to `Number` on every post and comment it returns.
-- **Soft-delete cascade for posts is a real transaction.** `db/posts.js` `softDeletePost`
+- **Soft-delete cascade for posts is a real transaction.** `server/db/posts.js` `softDeletePost`
   stamps the post's comments' `deleted_at` and then the post's, inside one
   `START TRANSACTION` / `COMMIT` (rolling back on error) — implementing the Stage A
   "cascade in server code" decision for the posts → comments edge.
@@ -168,7 +192,7 @@ This bonus bundles three goals: new **albums + photos** resources (DB/server/cli
 posts pattern (parent, soft-delete cascade), photos follow the comments pattern (child).
 - **Albums & photos are PRIVATE to their owner** (unlike posts, which are public). **Every**
   albums/photos route — reads included — requires `authenticateToken`, and reads are scoped
-  to `req.activeUserId` at the SQL level (`db/albums.js`/`db/photos.js` always filter
+  to `req.activeUserId` at the SQL level (`server/db/albums.js`/`server/db/photos.js` always filter
   `user_id = ?`). The owner is never a query param, so it can't be spoofed. A tampered
   `:albumId`/`?albumId` for someone else's data returns `404`/empty, never their rows.
   `GET /albums/:id` (and photos) return **`404` (not `403`)** for a row you don't own, so
@@ -178,8 +202,8 @@ posts pattern (parent, soft-delete cascade), photos follow the comments pattern 
   `Link: <…?page=N&limit=…>; rel="next"` header. The DB layer fetches **`limit + 1`** rows
   and the route derives `hasNext` from the extra row — **no `COUNT(*)` / `X-Total-Count`**.
   Helper: `middleware/pagination.js` `sendPaginated()`. Query params: `?page=` (default 1),
-  `?limit=` (default 6, max 50), `?q=` (album title `LIKE` search), `?albumId=` (photos).
-- **CORS exposes `Link`.** `index.js` sets `cors({ ..., exposedHeaders: ['Link'] })` so the
+  `?limit=` (albums default 3, photos default 8, max 50), `?q=` (album title `LIKE` search), `?albumId=` (photos).
+- **CORS exposes `Link`.** `server/index.js` sets `cors({ ..., exposedHeaders: ['Link'] })` so the
   browser's `fetch` can read the pagination header cross-origin (Vite `:5173` → Express
   `:3000`).
 - **`apiClient` opts into pagination.** `client/src/services/apiClient.js` gained a

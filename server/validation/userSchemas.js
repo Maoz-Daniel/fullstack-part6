@@ -19,4 +19,9 @@ const updateSchema = Joi.object({
   website: Joi.string().allow(''),
 }).min(1);
 
-module.exports = { createSchema, updateSchema };
+const passwordSchema = Joi.object({
+  currentPassword: Joi.string().min(1).required(),
+  newPassword: Joi.string().min(6).required(),
+});
+
+module.exports = { createSchema, updateSchema, passwordSchema };
