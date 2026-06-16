@@ -111,3 +111,31 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
   API origin (`http://localhost:3000/...`).
 - **CORS allowlist.** During development, Express enables CORS only for
   `http://localhost:5173`.
+- **Client data access goes through one `apiClient` wrapper.**
+  `client/src/services/apiClient.js` wraps `fetch`: it prefixes the
+  `http://localhost:3000` origin, attaches `Authorization: Bearer <token>` from the stored
+  session when present, sets `Content-Type: application/json` only when there is a body,
+  parses the JSON response, and on a non-2xx status throws an `Error` carrying `.status` and
+  `.data`. Per-resource service modules (e.g. `services/todosService.js`) build on it and
+  stay thin.
+- **Session lives behind `utils/session.js` + the `useAuth` hook.** `utils/session.js` owns
+  the Local Storage key `loggedInUser`, validates the `{ user, token }` shape on read/write,
+  and strips any `password` field. The `useAuth` hook exposes `{ user, token, login, logout,
+  isAuthenticated }` to components; no component touches `localStorage` directly.
+- **Route guards.** `router/PublicOnlyRoute.jsx` bounces an already-logged-in user away from
+  `/login` and `/register`; `router/ProtectedLayout.jsx` requires a session and forces the
+  `:username` segment in the URL to match the active user (redirecting otherwise).
+- **Info panel via hash, not a route.** The "Info" link appends `#user-info` to the current
+  path; `ProtectedLayout` renders `UserInfoPanel` when that hash is present. It shows
+  personal fields only, never the password. Logout clears Local Storage and returns to
+  `/login`.
+
+## Locked decisions (Stage D) — Todos feature (DONE)
+- **Todos client feature is complete.** `pages/TodosPage.jsx` lists the active user's todos
+  sorted by `id`, with a completion checkbox, inline title editing, delete, and an
+  All / Active / Completed filter that maps to the server's `?completed=` query param.
+  Creates default to `completed: false`; the owner is never sent from the client — the
+  server derives it from the JWT.
+- **`completed` is normalized to a real boolean client-side.** MySQL returns `TINYINT` 0/1,
+  so `services/todosService.js` coerces `completed` with `Boolean(...)` on every todo it
+  returns, keeping checkbox state correct.
