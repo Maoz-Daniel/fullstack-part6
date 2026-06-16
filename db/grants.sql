@@ -16,6 +16,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON project6.users    TO 'app_user'@'localho
 GRANT SELECT, INSERT, UPDATE, DELETE ON project6.todos    TO 'app_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE ON project6.posts    TO 'app_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE ON project6.comments TO 'app_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON project6.albums   TO 'app_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON project6.photos   TO 'app_user'@'localhost';
 
 -- Deliberately NO grant of any kind on project6.users_passwords.
 

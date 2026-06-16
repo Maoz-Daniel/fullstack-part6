@@ -11,6 +11,8 @@ USE project6;
 -- Drop in child-first order so the script is re-runnable.
 DROP PROCEDURE IF EXISTS sp_verify_login;
 DROP PROCEDURE IF EXISTS sp_set_password;
+DROP TABLE IF EXISTS photos;
+DROP TABLE IF EXISTS albums;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS todos;
@@ -79,6 +81,34 @@ CREATE TABLE comments (
   deleted_at DATETIME     NULL,               -- NULL = active (soft delete)
   CONSTRAINT fk_comment_post FOREIGN KEY (post_id) REFERENCES posts(id),
   CONSTRAINT fk_comment_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------------
+-- ALBUMS: many per user (Stage F bonus). PRIVATE to their owner - every read is
+-- scoped to the authenticated user, so albums are never shared like posts.
+-- ---------------------------------------------------------------------------
+CREATE TABLE albums (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT          NOT NULL,
+  title      VARCHAR(255) NOT NULL,
+  deleted_at DATETIME     NULL,               -- NULL = active (soft delete)
+  CONSTRAINT fk_album_user FOREIGN KEY (user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------------
+-- PHOTOS: many per album, owned by a user (author = album owner). PRIVATE too.
+-- Soft-deleting an album cascades to its photos in server code (see db/albums.js).
+-- ---------------------------------------------------------------------------
+CREATE TABLE photos (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  album_id      INT          NOT NULL,
+  user_id       INT          NOT NULL,        -- author; "only if owned" PUT/DELETE
+  title         VARCHAR(255) NOT NULL,
+  url           TEXT         NOT NULL,         -- full-size image URL
+  thumbnail_url TEXT         NOT NULL,         -- thumbnail image URL
+  deleted_at    DATETIME     NULL,             -- NULL = active (soft delete)
+  CONSTRAINT fk_photo_album FOREIGN KEY (album_id) REFERENCES albums(id),
+  CONSTRAINT fk_photo_user  FOREIGN KEY (user_id)  REFERENCES users(id)
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------------

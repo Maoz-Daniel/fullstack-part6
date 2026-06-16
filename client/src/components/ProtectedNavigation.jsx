@@ -21,6 +21,9 @@ export function ProtectedNavigation({ user, onLogout }) {
         <NavLink className={getNavClass} to={`${basePath}/todos`}>
           Todos
         </NavLink>
+        <NavLink className={getNavClass} to={`${basePath}/albums`}>
+          Albums
+        </NavLink>
         <Link className="nav-link" to={`${location.pathname}#user-info`}>
           Info
         </Link>

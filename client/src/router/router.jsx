@@ -5,6 +5,8 @@ import { LoginPage } from '../pages/LoginPage.jsx';
 import { RegisterPage } from '../pages/RegisterPage.jsx';
 import { PostsPage } from '../pages/PostsPage.jsx';
 import { TodosPage } from '../pages/TodosPage.jsx';
+import { AlbumsPage } from '../pages/AlbumsPage.jsx';
+import { AlbumPhotosPage } from '../pages/AlbumPhotosPage.jsx';
 import { readSessionUser } from '../utils/session.js';
 
 function HomeRedirect() {
@@ -45,6 +47,14 @@ export const router = createBrowserRouter([
       {
         path: 'todos',
         element: <TodosPage />,
+      },
+      {
+        path: 'albums',
+        element: <AlbumsPage />,
+      },
+      {
+        path: 'albums/:albumId/photos',
+        element: <AlbumPhotosPage />,
       },
     ],
   },

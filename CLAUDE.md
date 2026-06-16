@@ -139,3 +139,64 @@ Schema/seed live in `db/schema.sql`, `db/grants.sql`, `db/seed.sql` - don't dupl
 - **`completed` is normalized to a real boolean client-side.** MySQL returns `TINYINT` 0/1,
   so `services/todosService.js` coerces `completed` with `Boolean(...)` on every todo it
   returns, keeping checkbox state correct.
+
+## Locked decisions (Stage E) — Posts & Comments feature (DONE)
+- **Posts & comments client feature is complete.** `pages/PostsPage.jsx` is the full UI
+  (no longer a stub): a "My posts" / "All posts" toggle (mapped to the server's `?userId=`
+  filter), create/edit/delete post, and per-post expandable comments with create/edit/delete.
+  Everything is sorted by `id`. Edit/Delete controls render only when the row belongs to the
+  active user (`item.user_id === user.id`); the server still enforces ownership, the client
+  just hides what you can't do.
+- **Comments load lazily and are cached per post.** Clicking "Comments" fetches that post's
+  comments once via `getComments({ postId })` and stores them under `commentsByPostId[postId]`;
+  reopening reuses the cache. This keeps client↔server round-trips down (the Stage F
+  performance goal).
+- **List/read responses carry the author's email (`user_email`).** `db/posts.js` and
+  `db/comments.js` `JOIN users` and select `users.email AS user_email` on every read, so the
+  client can show who wrote a post/comment without a second request. `services/postsService.js`
+  normalizes `id` / `user_id` / `post_id` to `Number` on every post and comment it returns.
+- **Soft-delete cascade for posts is a real transaction.** `db/posts.js` `softDeletePost`
+  stamps the post's comments' `deleted_at` and then the post's, inside one
+  `START TRANSACTION` / `COMMIT` (rolling back on error) — implementing the Stage A
+  "cascade in server code" decision for the posts → comments edge.
+- **Comment creation validates its parent post.** `POST /comments` rejects a `post_id` that
+  doesn't reference an existing active post with `400` before inserting.
+
+## Locked decisions (Stage F) — Albums & Photos bonus (DONE)
+This bonus bundles three goals: new **albums + photos** resources (DB/server/client),
+**advanced URL queries** handled server-side, and **fewer round-trips**. Albums follow the
+posts pattern (parent, soft-delete cascade), photos follow the comments pattern (child).
+- **Albums & photos are PRIVATE to their owner** (unlike posts, which are public). **Every**
+  albums/photos route — reads included — requires `authenticateToken`, and reads are scoped
+  to `req.activeUserId` at the SQL level (`db/albums.js`/`db/photos.js` always filter
+  `user_id = ?`). The owner is never a query param, so it can't be spoofed. A tampered
+  `:albumId`/`?albumId` for someone else's data returns `404`/empty, never their rows.
+  `GET /albums/:id` (and photos) return **`404` (not `403`)** for a row you don't own, so
+  existence isn't leaked.
+- **Pagination via `Link` header, not an envelope.** `GET /albums` and `GET /photos` return
+  a **bare array** (same shape as posts/comments) plus, when more pages exist, an RFC-5988
+  `Link: <…?page=N&limit=…>; rel="next"` header. The DB layer fetches **`limit + 1`** rows
+  and the route derives `hasNext` from the extra row — **no `COUNT(*)` / `X-Total-Count`**.
+  Helper: `middleware/pagination.js` `sendPaginated()`. Query params: `?page=` (default 1),
+  `?limit=` (default 6, max 50), `?q=` (album title `LIKE` search), `?albumId=` (photos).
+- **CORS exposes `Link`.** `index.js` sets `cors({ ..., exposedHeaders: ['Link'] })` so the
+  browser's `fetch` can read the pagination header cross-origin (Vite `:5173` → Express
+  `:3000`).
+- **`apiClient` opts into pagination.** `client/src/services/apiClient.js` gained a
+  `withPagination` option: when set it parses the `Link` header and returns
+  `{ data, nextPage }`. Default callers (posts/todos/comments) still get the bare body —
+  unchanged.
+- **`photo_count` via a correlated subquery** (NOT `JOIN` + `GROUP BY`): `listAlbums` selects
+  `(SELECT COUNT(*) FROM photos WHERE album_id = albums.id AND deleted_at IS NULL)` so the
+  albums grid shows photo counts with no per-album request (N+1 avoided). The `JOIN users`
+  remains, only for `user_email`.
+- **Client page cache cuts repeat round-trips.** `services/cacheStore.js` is a session
+  `Map`; `albumsService`/`photosService` cache each page under
+  `albums:user:<id>:q:<q>:page:<n>` / `photos:album:<id>:page:<n>` and invalidate by prefix
+  on any write. Re-opening a visited album/page is served from cache.
+- **Pagination UI via `hooks/usePaginatedItems.js`** ("Load more", merge-by-id). Photos
+  carry `title`, `url`, `thumbnail_url`.
+- **Drill-in routes.** `/users/:username/albums` (grid) and
+  `/users/:username/albums/:albumId/photos` (`AlbumsPage` / `AlbumPhotosPage`). The photos
+  page redirects to the grid on a 404 album load, but that's only UX — the server is the
+  real gate.
