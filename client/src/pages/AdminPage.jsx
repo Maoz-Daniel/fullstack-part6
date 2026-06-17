@@ -87,6 +87,7 @@ export function AdminPage() {
   const [filters, setFilters] = useState({ actionType: '', resourceType: '' });
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingActions, setLoadingActions] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [pendingUserId, setPendingUserId] = useState(null);
   const [error, setError] = useState('');
 
@@ -134,27 +135,22 @@ export function AdminPage() {
     return () => {
       ignore = true;
     };
-  }, [filters, replaceFirstPage]);
+    // replaceFirstPage is stable enough for our needs; only re-run on a filter change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   async function refreshActions() {
     setError('');
+    setIsRefreshing(true);
     try {
       const pageData = await getAdminActionsPage(filters);
       replaceFirstPage(pageData);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsRefreshing(false);
     }
   }
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      refreshActions().catch(() => {});
-    }, 15000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [filters]);
 
   function handleFilterChange(event) {
     const { name, value } = event.target;
@@ -289,7 +285,17 @@ export function AdminPage() {
       <section className="admin-section">
         <div className="admin-section__header">
           <h3>Activity log</h3>
-          <span className="todo-count">{actions.length} loaded</span>
+          <div className="admin-section__header-actions">
+            <span className="todo-count">{actions.length} loaded</span>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={refreshActions}
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
         </div>
 
         <form className="admin-filters" onSubmit={(event) => event.preventDefault()}>
