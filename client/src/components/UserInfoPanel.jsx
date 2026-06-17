@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { changeUserPassword, updateUserProfile } from '../services/usersService.js';
 
 function buildProfileForm(user) {
@@ -16,7 +16,7 @@ const EMPTY_PASSWORD_FORM = {
   newPassword: '',
 };
 
-export function UserInfoPanel({ user, updateSession, currentPath, onUsernameChange }) {
+export function UserInfoPanel({ user, updateSession, currentPath, onUsernameChange, onClose }) {
   const [profileForm, setProfileForm] = useState(() => buildProfileForm(user));
   const [passwordForm, setPasswordForm] = useState(EMPTY_PASSWORD_FORM);
   const [profileError, setProfileError] = useState('');
@@ -25,6 +25,15 @@ export function UserInfoPanel({ user, updateSession, currentPath, onUsernameChan
   const [passwordMessage, setPasswordMessage] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
+
+  // Close the popup on Escape, like a native dialog.
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   function handleProfileChange(event) {
     const { name, value } = event.target;
@@ -99,7 +108,19 @@ export function UserInfoPanel({ user, updateSession, currentPath, onUsernameChan
   }
 
   return (
-    <aside className="info-panel" id="user-info" aria-label="User information">
+    <div className="modal-overlay" onClick={onClose}>
+      <aside
+        className="info-panel info-modal"
+        id="user-info"
+        role="dialog"
+        aria-modal="true"
+        aria-label="User information"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="modal__close" aria-label="Close" onClick={onClose}>
+          &times;
+        </button>
+
       <div>
         <p className="eyebrow">Info</p>
         <h2>Personal details</h2>
@@ -171,6 +192,7 @@ export function UserInfoPanel({ user, updateSession, currentPath, onUsernameChan
           </button>
         </div>
       </form>
-    </aside>
+      </aside>
+    </div>
   );
 }

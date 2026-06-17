@@ -28,6 +28,11 @@ export function ProtectedLayout() {
     navigate(`${nextPath}#user-info`, { replace: true });
   }
 
+  // Close the Info popup by dropping the #user-info hash from the URL.
+  function handleCloseInfo() {
+    navigate(`${location.pathname}${location.search}`, { replace: true });
+  }
+
   return (
     <main className="app app--protected">
       <section className="workspace">
@@ -39,6 +44,7 @@ export function ProtectedLayout() {
             updateSession={login}
             currentPath={location.pathname}
             onUsernameChange={handleUsernameChange}
+            onClose={handleCloseInfo}
           />
         ) : null}
       </section>

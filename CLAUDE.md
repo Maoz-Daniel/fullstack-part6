@@ -149,10 +149,12 @@ Schema/seed live in `database/schema.sql`, `database/grants.sql`, `database/seed
 - **Route guards.** `router/PublicOnlyRoute.jsx` bounces an already-logged-in user away from
   `/login` and `/register`; `router/ProtectedLayout.jsx` requires a session and forces the
   `:username` segment in the URL to match the active user (redirecting otherwise).
-- **Info panel via hash, not a route.** The "Info" link appends `#user-info` to the current
-  path; `ProtectedLayout` renders `UserInfoPanel` when that hash is present. It shows
-  personal fields only, never the password. Logout clears Local Storage and returns to
-  `/login`.
+- **Info popup via hash, not a route.** The "Info" link appends `#user-info` to the current
+  path; `ProtectedLayout` renders `UserInfoPanel` when that hash is present. It renders as a
+  **modal popup** (dark backdrop + centered dialog) closable via the **X** button, **Esc**,
+  or a **backdrop click** — each clears the `#user-info` hash. It shows personal fields and
+  lets the user edit their profile and change their password, but never displays the stored
+  password. Logout clears Local Storage and returns to `/login`.
 
 ## Locked decisions (Stage D) — Todos feature (DONE)
 - **Todos client feature is complete.** `pages/TodosPage.jsx` lists the active user's todos
@@ -201,7 +203,7 @@ posts pattern (parent, soft-delete cascade), photos follow the comments pattern 
   a **bare array** (same shape as posts/comments) plus, when more pages exist, an RFC-5988
   `Link: <…?page=N&limit=…>; rel="next"` header. The DB layer fetches **`limit + 1`** rows
   and the route derives `hasNext` from the extra row — **no `COUNT(*)` / `X-Total-Count`**.
-  Helper: `middleware/pagination.js` `sendPaginated()`. Query params: `?page=` (default 1),
+  Helper: `server/middleware/pagination.js` `sendPaginated()`. Query params: `?page=` (default 1),
   `?limit=` (albums default 3, photos default 8, max 50), `?q=` (album title `LIKE` search), `?albumId=` (photos).
 - **CORS exposes `Link`.** `server/index.js` sets `cors({ ..., exposedHeaders: ['Link'] })` so the
   browser's `fetch` can read the pagination header cross-origin (Vite `:5173` → Express
@@ -224,3 +226,41 @@ posts pattern (parent, soft-delete cascade), photos follow the comments pattern 
   `/users/:username/albums/:albumId/photos` (`AlbumsPage` / `AlbumPhotosPage`). The photos
   page redirects to the grid on a 404 album load, but that's only UX — the server is the
   real gate.
+
+## Locked decisions (Stage F) — User management & Admin (DONE)
+Implements the Stage B admin/account locked decisions in code, plus a few extensions. Also
+the project layout now matches the **Project structure** section above: server code under
+`server/`, SQL infra under `database/` (the earlier root-level `db/`, `routes/`, etc. were
+moved; `node server/index.js` / `npm run dev` is the entry point).
+- **Self-service account management (client `services/usersService.js`).** `PUT /users/:id`
+  updates profile fields and returns `{ user, token }` (fresh JWT so a username change keeps
+  Local Storage and the token in sync). `PUT /users/:id/password` verifies `currentPassword`
+  via `sp_verify_login` then sets the new one via `sp_set_password` — both gated to the
+  active user (`existing.id === req.activeUserId`, else `403`).
+- **Admin routes (`server/routes/admin.js`) are double-gated** by
+  `authenticateToken` **then** `requireAdmin` (`server/middleware/requireAdmin.js`, checks
+  `req.activeUser.is_admin === 1`, else `403`). Exposes `GET /admin/users`,
+  `PUT /admin/users/:id/block`, `.../unblock`, `.../make-admin`, and paginated
+  `GET /admin/actions`.
+- **`make-admin` is new beyond the Stage B list.** `PUT /admin/users/:id/make-admin`
+  promotes a user, with guards: can't promote yourself (`403`), `409` if already admin,
+  `403` if the user is blocked (unblock first). Block/unblock keep the Stage B safety rules
+  (admins can't be blocked; you can't block your own account).
+- **`user_actions` is an actor/target audit log.** Columns: `actor_user_id`,
+  `target_user_id` (both nullable FKs to `users`), `action_type`, `resource_type`,
+  `resource_id`, `details`, `created_at`. `server/db/userActions.js` `listActions` `LEFT JOIN`s
+  users twice (actor + target) for usernames/emails, orders by `id DESC`, and paginates with
+  the same `Link`-header helper. `GET /admin/actions` filters: `?userId=` (matches actor OR
+  target), `?actionType=`, `?resourceType=` (default `limit` 10).
+- **Logging is best-effort via `safeLogAction`.** It wraps `logAction` in try/catch and only
+  `console.error`s on failure, so a logging error never breaks the real request. Logged
+  events now include `profile_update`, `password_change`, `admin_block_user`,
+  `admin_unblock_user`, `admin_make_admin` (plus the Stage B failed-login records; successful
+  logins are still not logged).
+- **`createAuthToken` is shared.** Extracted to `server/utils/createAuthToken.js` and used by
+  both `routes/auth.js` (login/register) and `routes/users.js` (profile update), instead of
+  re-signing inline.
+- **Client admin UI.** `pages/AdminPage.jsx` + `services/adminService.js`; an `Admin`
+  nav link renders only when `user.is_admin` (`ProtectedNavigation.jsx`), routed at
+  `/users/:username/admin`. `adminService` normalizes ids and reuses the `withPagination`
+  Link-header flow for the actions log.
