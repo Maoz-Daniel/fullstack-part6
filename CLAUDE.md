@@ -205,11 +205,15 @@ This bonus bundles three goals: new **albums + photos** resources (DB/server/cli
 posts pattern (parent, soft-delete cascade), photos follow the comments pattern (child).
 - **Albums & photos are PRIVATE to their owner** (unlike posts, which are public). **Every**
   albums/photos route — reads included — requires `authenticateToken`, and reads are scoped
-  to `req.activeUserId` at the SQL level (`server/db/albums.js`/`server/db/photos.js` always filter
-  `user_id = ?`). The owner is never a query param, so it can't be spoofed. A tampered
-  `:albumId`/`?albumId` for someone else's data returns `404`/empty, never their rows.
-  `GET /albums/:id` (and photos) return **`404` (not `403`)** for a row you don't own, so
-  existence isn't leaked.
+  to `req.activeUserId` at the SQL level. The owner is never a query param, so it can't be
+  spoofed. A tampered `:albumId`/`?albumId` for someone else's data returns `404`/empty,
+  never their rows. `GET /albums/:id` (and photos) return **`404` (not `403`)** for a row you
+  don't own, so existence isn't leaked.
+- **A photo's owner is its album's owner (photo → album → user); `photos` has no `user_id`.**
+  Only `albums` carries `user_id`. `server/db/albums.js` scopes reads with `albums.user_id = ?`;
+  `server/db/photos.js` scopes by **joining albums** (`albums.user_id = ?`), and the photo
+  routes check ownership via the photo's album (`albums.getAlbumById`). Photo reads return only
+  photo columns (`id, album_id, title, url, thumbnail_url`) — no `user_id`/`user_email`.
 - **Pagination via `Link` header, not an envelope.** `GET /albums` and `GET /photos` return
   a **bare array** (same shape as posts/comments) plus, when more pages exist, an RFC-5988
   `Link: <…?page=N&limit=…>; rel="next"` header. The DB layer fetches **`limit + 1`** rows
@@ -225,8 +229,9 @@ posts pattern (parent, soft-delete cascade), photos follow the comments pattern 
   unchanged.
 - **`photo_count` via a correlated subquery** (NOT `JOIN` + `GROUP BY`): `listAlbums` selects
   `(SELECT COUNT(*) FROM photos WHERE album_id = albums.id AND deleted_at IS NULL)` so the
-  albums grid shows photo counts with no per-album request (N+1 avoided). The `JOIN users`
-  remains, only for `user_email`.
+  albums grid shows photo counts with no per-album request (N+1 avoided). Albums reads return
+  only `id, user_id, title, photo_count` — no `JOIN users`/`user_email` (albums are always the
+  active user's own, so the owner email was redundant and unused by the client).
 - **Client page cache cuts repeat round-trips and restores loaded views.** `services/cacheStore.js`
   is a session `Map`. `todosService`, `postsService`, `albumsService`, and `photosService`
   cache paginated API pages and invalidate by prefix on writes. `TodosPage`, `PostsPage`,

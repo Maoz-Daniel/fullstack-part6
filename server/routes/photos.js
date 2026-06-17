@@ -29,12 +29,19 @@ router.get('/', async (req, res) => {
   sendPaginated(req, res, rows, { page, limit, query: value });
 });
 
+// Resolve a photo the active user owns (ownership is via the photo's album), or undefined.
+async function getOwnedPhoto(photoId, activeUserId) {
+  const photo = await photos.getPhotoById(photoId);
+  if (!photo) return undefined;
+  const album = await albums.getAlbumById(photo.album_id);
+  if (!album || album.user_id !== activeUserId) return undefined;
+  return photo;
+}
+
 // GET /photos/:id -> a single photo the active user owns, else 404.
 router.get('/:id', async (req, res) => {
-  const photo = await photos.getPhotoById(req.params.id);
-  if (!photo || photo.user_id !== req.activeUserId) {
-    return res.status(404).json({ error: 'Photo not found' });
-  }
+  const photo = await getOwnedPhoto(req.params.id, req.activeUserId);
+  if (!photo) return res.status(404).json({ error: 'Photo not found' });
   res.json(photo);
 });
 
@@ -51,7 +58,6 @@ router.post('/', async (req, res) => {
 
   const created = await photos.createPhoto({
     albumId: value.album_id,
-    userId: req.activeUserId,
     title: value.title,
     url: value.url,
     thumbnailUrl: value.thumbnail_url,
@@ -73,10 +79,8 @@ router.put('/:id', async (req, res) => {
   const { error, value } = updateSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.details[0].message });
 
-  const existing = await photos.getPhotoById(req.params.id);
-  if (!existing || existing.user_id !== req.activeUserId) {
-    return res.status(404).json({ error: 'Photo not found' });
-  }
+  const existing = await getOwnedPhoto(req.params.id, req.activeUserId);
+  if (!existing) return res.status(404).json({ error: 'Photo not found' });
 
   const updated = await photos.updatePhoto(req.params.id, {
     title: value.title,
@@ -96,10 +100,8 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /photos/:id -> soft delete only if owned by the authenticated user.
 router.delete('/:id', async (req, res) => {
-  const existing = await photos.getPhotoById(req.params.id);
-  if (!existing || existing.user_id !== req.activeUserId) {
-    return res.status(404).json({ error: 'Photo not found' });
-  }
+  const existing = await getOwnedPhoto(req.params.id, req.activeUserId);
+  if (!existing) return res.status(404).json({ error: 'Photo not found' });
 
   await photos.softDeletePhoto(req.params.id);
   await safeLogAction({

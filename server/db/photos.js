@@ -1,12 +1,18 @@
-// Data-access layer for photos (Stage F bonus). Photos are PRIVATE to their owner:
-// every list/read is scoped by user_id, so a tampered albumId belonging to someone
-// else simply returns no rows.
+// Data-access layer for photos (Stage F bonus). A photo's owner is its album's owner
+// (photo -> album -> user); photos carry no user_id. Reads are PRIVATE: list is scoped to
+// the active user by joining albums and filtering albums.user_id, so a tampered albumId
+// belonging to someone else simply returns no rows.
 const { query } = require('./connection');
 
 // List a user's active photos, optional ?albumId= filter, paginated.
-// Fetches `limit + 1` rows so the route can detect a next page without COUNT(*).
+// Ownership is enforced through the album (albums.user_id = ?). Fetches `limit + 1` rows so
+// the route can detect a next page without COUNT(*).
 async function listPhotos({ userId, albumId, limit, offset }) {
-  const where = ['photos.deleted_at IS NULL', 'photos.user_id = ?'];
+  const where = [
+    'photos.deleted_at IS NULL',
+    'albums.deleted_at IS NULL',
+    'albums.user_id = ?',
+  ];
   const params = [userId];
 
   if (albumId !== undefined) {
@@ -17,10 +23,9 @@ async function listPhotos({ userId, albumId, limit, offset }) {
   params.push(limit + 1, offset);
 
   return query(
-    `SELECT photos.id, photos.album_id, photos.user_id, users.email AS user_email,
-            photos.title, photos.url, photos.thumbnail_url
+    `SELECT photos.id, photos.album_id, photos.title, photos.url, photos.thumbnail_url
      FROM photos
-     JOIN users ON users.id = photos.user_id
+     JOIN albums ON albums.id = photos.album_id
      WHERE ${where.join(' AND ')}
      ORDER BY photos.id
      LIMIT ? OFFSET ?`,
@@ -28,13 +33,12 @@ async function listPhotos({ userId, albumId, limit, offset }) {
   );
 }
 
-// Single active photo by id, or undefined if missing/soft-deleted.
+// Single active photo by id, or undefined if missing/soft-deleted. Returns photo fields
+// only; the route checks ownership via the photo's album.
 async function getPhotoById(id) {
   const rows = await query(
-    `SELECT photos.id, photos.album_id, photos.user_id, users.email AS user_email,
-            photos.title, photos.url, photos.thumbnail_url
+    `SELECT photos.id, photos.album_id, photos.title, photos.url, photos.thumbnail_url
      FROM photos
-     JOIN users ON users.id = photos.user_id
      WHERE photos.id = ? AND photos.deleted_at IS NULL`,
     [id]
   );
@@ -42,10 +46,10 @@ async function getPhotoById(id) {
 }
 
 // Insert a photo, then return the stored row.
-async function createPhoto({ albumId, userId, title, url, thumbnailUrl }) {
+async function createPhoto({ albumId, title, url, thumbnailUrl }) {
   const result = await query(
-    'INSERT INTO photos (album_id, user_id, title, url, thumbnail_url) VALUES (?, ?, ?, ?, ?)',
-    [albumId, userId, title, url, thumbnailUrl]
+    'INSERT INTO photos (album_id, title, url, thumbnail_url) VALUES (?, ?, ?, ?)',
+    [albumId, title, url, thumbnailUrl]
   );
   return getPhotoById(result.insertId);
 }

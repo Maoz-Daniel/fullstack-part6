@@ -8,7 +8,6 @@ function normalizePhoto(photo) {
     ...photo,
     id: Number(photo.id),
     album_id: Number(photo.album_id),
-    user_id: Number(photo.user_id),
   };
 }
 

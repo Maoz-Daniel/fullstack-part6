@@ -97,19 +97,18 @@ CREATE TABLE albums (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------------
--- PHOTOS: many per album, owned by a user (author = album owner). PRIVATE too.
+-- PHOTOS: many per album. A photo's owner is its album's owner (photo -> album -> user),
+-- so photos do NOT store user_id. PRIVATE: reads are scoped through the album.
 -- Soft-deleting an album cascades to its photos in server code (see server/db/albums.js).
 -- ---------------------------------------------------------------------------
 CREATE TABLE photos (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   album_id      INT          NOT NULL,
-  user_id       INT          NOT NULL,        -- author; "only if owned" PUT/DELETE
   title         VARCHAR(255) NOT NULL,
   url           TEXT         NOT NULL,         -- full-size image URL
   thumbnail_url TEXT         NOT NULL,         -- thumbnail image URL
   deleted_at    DATETIME     NULL,             -- NULL = active (soft delete)
-  CONSTRAINT fk_photo_album FOREIGN KEY (album_id) REFERENCES albums(id),
-  CONSTRAINT fk_photo_user  FOREIGN KEY (user_id)  REFERENCES users(id)
+  CONSTRAINT fk_photo_album FOREIGN KEY (album_id) REFERENCES albums(id)
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------------

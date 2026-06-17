@@ -256,7 +256,7 @@ export function AlbumPhotosPage() {
           {photos.map((photo) => {
             const isEditing = editingId === photo.id;
             const isPending = pendingId === photo.id;
-            const canManage = photo.user_id === user.id;
+            const canManage = album?.user_id === user.id;
 
             return (
               <li className="photo-card" key={photo.id}>

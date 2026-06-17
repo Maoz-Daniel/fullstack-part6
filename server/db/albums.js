@@ -18,11 +18,10 @@ async function listAlbums({ userId, q, limit, offset }) {
   params.push(limit + 1, offset);
 
   return query(
-    `SELECT albums.id, albums.user_id, users.email AS user_email, albums.title,
+    `SELECT albums.id, albums.user_id, albums.title,
             (SELECT COUNT(*) FROM photos
              WHERE photos.album_id = albums.id AND photos.deleted_at IS NULL) AS photo_count
      FROM albums
-     JOIN users ON users.id = albums.user_id
      WHERE ${where.join(' AND ')}
      ORDER BY albums.id
      LIMIT ? OFFSET ?`,
@@ -33,11 +32,10 @@ async function listAlbums({ userId, q, limit, offset }) {
 // Single active album by id, or undefined if missing/soft-deleted.
 async function getAlbumById(id) {
   const rows = await query(
-    `SELECT albums.id, albums.user_id, users.email AS user_email, albums.title,
+    `SELECT albums.id, albums.user_id, albums.title,
             (SELECT COUNT(*) FROM photos
              WHERE photos.album_id = albums.id AND photos.deleted_at IS NULL) AS photo_count
      FROM albums
-     JOIN users ON users.id = albums.user_id
      WHERE albums.id = ? AND albums.deleted_at IS NULL`,
     [id]
   );
