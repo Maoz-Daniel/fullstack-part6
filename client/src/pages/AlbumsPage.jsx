@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { usePaginatedItems } from '../hooks/usePaginatedItems.js';
+import { getCached, setCached } from '../services/cacheStore.js';
 import {
   createAlbum,
   deleteAlbum,
@@ -30,6 +31,7 @@ export function AlbumsPage() {
     items: albums,
     setItems,
     nextPage,
+    setNextPage,
     isLoadingMore,
     loadMore,
     replaceFirstPage,
@@ -45,15 +47,32 @@ export function AlbumsPage() {
   const [pendingId, setPendingId] = useState(null);
   const [error, setError] = useState('');
 
+  function viewCacheKey(currentQuery = query) {
+    return `albums-view:user:${user.id}:q:${currentQuery}`;
+  }
+
   // Load the first page whenever the submitted search term changes.
   useEffect(() => {
     let ignore = false;
     setLoading(true);
     setError('');
 
+    const cachedView = getCached(viewCacheKey(query));
+    if (cachedView) {
+      setItems(cachedView.items);
+      setNextPage(cachedView.nextPage);
+      setLoading(false);
+      return () => {
+        ignore = true;
+      };
+    }
+
     getAlbumsPage({ page: 1, q: query })
       .then((pageData) => {
-        if (!ignore) replaceFirstPage(pageData);
+        if (!ignore) {
+          replaceFirstPage(pageData);
+          setCached(viewCacheKey(query), { items: pageData.data, nextPage: pageData.nextPage });
+        }
       })
       .catch((err) => {
         if (!ignore) setError(err.message);
@@ -67,7 +86,7 @@ export function AlbumsPage() {
     };
     // replaceFirstPage is stable enough for our needs; only re-run on a new search.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
+  }, [query, replaceFirstPage, setItems, setNextPage, user.id]);
 
   function handleSearch(event) {
     event.preventDefault();
@@ -76,7 +95,12 @@ export function AlbumsPage() {
 
   function handleLoadMore() {
     setError('');
-    loadMore((page) => getAlbumsPage({ page, q: query })).catch((err) => setError(err.message));
+    loadMore(
+      (page) => getAlbumsPage({ page, q: query }),
+      (mergedItems, mergedNextPage) => {
+        setCached(viewCacheKey(), { items: mergedItems, nextPage: mergedNextPage });
+      }
+    ).catch((err) => setError(err.message));
   }
 
   async function handleCreate(event) {
@@ -93,7 +117,11 @@ export function AlbumsPage() {
       const created = await createAlbum({ title });
       setNewTitle('');
       // New album has the highest id, so it belongs at the end of the id-sorted list.
-      setItems((current) => [...current, created]);
+      setItems((current) => {
+        const nextAlbums = [...current, created];
+        setCached(viewCacheKey(), { items: nextAlbums, nextPage });
+        return nextAlbums;
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -124,7 +152,11 @@ export function AlbumsPage() {
     setError('');
     try {
       const updated = await updateAlbum(album.id, { title });
-      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setItems((current) => {
+        const nextAlbums = current.map((item) => (item.id === updated.id ? updated : item));
+        setCached(viewCacheKey(), { items: nextAlbums, nextPage });
+        return nextAlbums;
+      });
       cancelEditing();
     } catch (err) {
       setError(err.message);
@@ -138,7 +170,11 @@ export function AlbumsPage() {
     setError('');
     try {
       await deleteAlbum(album.id);
-      setItems((current) => current.filter((item) => item.id !== album.id));
+      setItems((current) => {
+        const nextAlbums = current.filter((item) => item.id !== album.id);
+        setCached(viewCacheKey(), { items: nextAlbums, nextPage });
+        return nextAlbums;
+      });
       if (editingId === album.id) cancelEditing();
     } catch (err) {
       setError(err.message);

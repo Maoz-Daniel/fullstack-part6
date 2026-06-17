@@ -18,6 +18,7 @@ function photosPrefix(albumId) {
 
 function invalidatePhotos(albumId) {
   deleteByPrefix(photosPrefix(albumId));
+  deleteByPrefix(`photos-view:album:${albumId}`);
 }
 
 // One page of a single album's photos. Returns `{ data: normalizedPhotos, nextPage }`,

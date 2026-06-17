@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { usePaginatedItems } from '../hooks/usePaginatedItems.js';
+import { getCached, setCached } from '../services/cacheStore.js';
 import {
   createComment,
   createPost,
@@ -38,6 +39,7 @@ export function PostsPage() {
     items: posts,
     setItems: setPosts,
     nextPage,
+    setNextPage,
     isLoadingMore,
     loadMore,
     replaceFirstPage,
@@ -56,6 +58,10 @@ export function PostsPage() {
   const [pendingKey, setPendingKey] = useState('');
   const [error, setError] = useState('');
 
+  function viewCacheKey(currentMode = postViewMode) {
+    return `posts-view:user:${user.id}:mode:${currentMode}`;
+  }
+
   useEffect(() => {
     let ignore = false;
 
@@ -64,9 +70,18 @@ export function PostsPage() {
       setError('');
 
       try {
+        const cachedView = getCached(viewCacheKey(postViewMode));
+        if (cachedView) {
+          setPosts(cachedView.items);
+          setNextPage(cachedView.nextPage);
+          setLoading(false);
+          return;
+        }
+
         const pageData = await getPostsPage({ userId: postViewMode === 'mine' ? user.id : undefined });
         if (!ignore) {
           replaceFirstPage(pageData);
+          setCached(viewCacheKey(postViewMode), { items: pageData.data, nextPage: pageData.nextPage });
         }
       } catch (err) {
         if (!ignore) {
@@ -84,15 +99,19 @@ export function PostsPage() {
     return () => {
       ignore = true;
     };
-  }, [postViewMode, replaceFirstPage, user.id]);
+  }, [postViewMode, replaceFirstPage, setNextPage, setPosts, user.id]);
 
   function handleLoadMore() {
     setError('');
-    loadMore((page) =>
-      getPostsPage({
-        userId: postViewMode === 'mine' ? user.id : undefined,
-        page,
-      })
+    loadMore(
+      (page) =>
+        getPostsPage({
+          userId: postViewMode === 'mine' ? user.id : undefined,
+          page,
+        }),
+      (mergedItems, mergedNextPage) => {
+        setCached(viewCacheKey(), { items: mergedItems, nextPage: mergedNextPage });
+      }
     ).catch((err) => setError(err.message));
   }
 
@@ -141,7 +160,11 @@ export function PostsPage() {
 
     try {
       const created = await createPost({ title, body });
-      setPosts((currentPosts) => sortById([...currentPosts, created]));
+      setPosts((currentPosts) => {
+        const nextPosts = sortById([...currentPosts, created]);
+        setCached(viewCacheKey(), { items: nextPosts, nextPage });
+        return nextPosts;
+      });
       setPostForm(EMPTY_POST_FORM);
     } catch (err) {
       setError(err.message);
@@ -176,7 +199,11 @@ export function PostsPage() {
 
     try {
       const updated = await updatePost(post.id, { title, body });
-      setPosts((currentPosts) => updateById(currentPosts, updated));
+      setPosts((currentPosts) => {
+        const nextPosts = updateById(currentPosts, updated);
+        setCached(viewCacheKey(), { items: nextPosts, nextPage });
+        return nextPosts;
+      });
       cancelEditingPost();
     } catch (err) {
       setError(err.message);
@@ -191,7 +218,11 @@ export function PostsPage() {
 
     try {
       await deletePost(post.id);
-      setPosts((currentPosts) => currentPosts.filter((item) => item.id !== post.id));
+      setPosts((currentPosts) => {
+        const nextPosts = currentPosts.filter((item) => item.id !== post.id);
+        setCached(viewCacheKey(), { items: nextPosts, nextPage });
+        return nextPosts;
+      });
       setCommentsByPostId((current) => {
         const next = { ...current };
         delete next[post.id];

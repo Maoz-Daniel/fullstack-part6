@@ -21,6 +21,7 @@ function albumsPrefix() {
 
 function invalidateAlbums() {
   deleteByPrefix(albumsPrefix());
+  deleteByPrefix('albums-view:');
 }
 
 // One page of the active user's albums, optionally title-filtered. Returns
@@ -63,5 +64,6 @@ export async function deleteAlbum(id) {
   const deleted = await apiClient(`/albums/${id}`, { method: 'DELETE' });
   invalidateAlbums();
   deleteByPrefix(`photos:album:${id}:`); // its photos were cascade-deleted too
+  deleteByPrefix(`photos-view:album:${id}`);
   return deleted;
 }

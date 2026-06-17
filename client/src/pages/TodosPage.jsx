@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { usePaginatedItems } from '../hooks/usePaginatedItems.js';
+import { getCached, setCached } from '../services/cacheStore.js';
 import { createTodo, deleteTodo, getTodosPage, updateTodo } from '../services/todosService.js';
 
 const FILTERS = [
@@ -30,6 +31,7 @@ export function TodosPage() {
     items: todos,
     setItems: setTodos,
     nextPage,
+    setNextPage,
     isLoadingMore,
     loadMore,
     replaceFirstPage,
@@ -43,6 +45,10 @@ export function TodosPage() {
   const [pendingTodoId, setPendingTodoId] = useState(null);
   const [error, setError] = useState('');
 
+  function viewCacheKey(currentFilter = filter) {
+    return `todos-view:user:${user.id}:filter:${currentFilter}`;
+  }
+
   useEffect(() => {
     let ignore = false;
 
@@ -51,6 +57,14 @@ export function TodosPage() {
       setError('');
 
       try {
+        const cachedView = getCached(viewCacheKey(filter));
+        if (cachedView) {
+          setTodos(cachedView.items);
+          setNextPage(cachedView.nextPage);
+          setLoading(false);
+          return;
+        }
+
         const pageData = await getTodosPage({
           userId: user.id,
           completed: getCompletedFilter(filter),
@@ -58,6 +72,7 @@ export function TodosPage() {
 
         if (!ignore) {
           replaceFirstPage(pageData);
+          setCached(viewCacheKey(filter), { items: pageData.data, nextPage: pageData.nextPage });
         }
       } catch (err) {
         if (!ignore) {
@@ -75,16 +90,20 @@ export function TodosPage() {
     return () => {
       ignore = true;
     };
-  }, [filter, replaceFirstPage, user.id]);
+  }, [filter, replaceFirstPage, setNextPage, setTodos, user.id]);
 
   function handleLoadMore() {
     setError('');
-    loadMore((page) =>
-      getTodosPage({
-        userId: user.id,
-        completed: getCompletedFilter(filter),
-        page,
-      })
+    loadMore(
+      (page) =>
+        getTodosPage({
+          userId: user.id,
+          completed: getCompletedFilter(filter),
+          page,
+        }),
+      (mergedItems, mergedNextPage) => {
+        setCached(viewCacheKey(), { items: mergedItems, nextPage: mergedNextPage });
+      }
     ).catch((err) => setError(err.message));
   }
 
@@ -109,7 +128,9 @@ export function TodosPage() {
       setNewTitle('');
       setTodos((currentTodos) => {
         if (!todoMatchesFilter(created, filter)) return currentTodos;
-        return sortTodos([...currentTodos, created]);
+        const nextTodos = sortTodos([...currentTodos, created]);
+        setCached(viewCacheKey(), { items: nextTodos, nextPage });
+        return nextTodos;
       });
     } catch (err) {
       setError(err.message);
@@ -126,10 +147,14 @@ export function TodosPage() {
       const updated = await updateTodo(todo.id, { completed: !todo.completed });
       setTodos((currentTodos) => {
         if (!todoMatchesFilter(updated, filter)) {
-          return currentTodos.filter((item) => item.id !== updated.id);
+          const nextTodos = currentTodos.filter((item) => item.id !== updated.id);
+          setCached(viewCacheKey(), { items: nextTodos, nextPage });
+          return nextTodos;
         }
 
-        return sortTodos(currentTodos.map((item) => (item.id === updated.id ? updated : item)));
+        const nextTodos = sortTodos(currentTodos.map((item) => (item.id === updated.id ? updated : item)));
+        setCached(viewCacheKey(), { items: nextTodos, nextPage });
+        return nextTodos;
       });
     } catch (err) {
       setError(err.message);
@@ -163,9 +188,11 @@ export function TodosPage() {
 
     try {
       const updated = await updateTodo(todo.id, { title });
-      setTodos((currentTodos) =>
-        sortTodos(currentTodos.map((item) => (item.id === updated.id ? updated : item)))
-      );
+      setTodos((currentTodos) => {
+        const nextTodos = sortTodos(currentTodos.map((item) => (item.id === updated.id ? updated : item)));
+        setCached(viewCacheKey(), { items: nextTodos, nextPage });
+        return nextTodos;
+      });
       cancelEditing();
     } catch (err) {
       setError(err.message);
@@ -180,7 +207,11 @@ export function TodosPage() {
 
     try {
       await deleteTodo(todo.id);
-      setTodos((currentTodos) => currentTodos.filter((item) => item.id !== todo.id));
+      setTodos((currentTodos) => {
+        const nextTodos = currentTodos.filter((item) => item.id !== todo.id);
+        setCached(viewCacheKey(), { items: nextTodos, nextPage });
+        return nextTodos;
+      });
       if (editingId === todo.id) {
         cancelEditing();
       }

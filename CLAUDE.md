@@ -27,10 +27,15 @@ knowledge where this doc specifies an approach.
 - A separate **users+passwords** table holds credentials, with **restricted access**.
 
 ### Server (mirrors jsonplaceholder)
+<<<<<<< HEAD
 - Routes: `/users`, `/todos`, `/posts`, `/comments` - full REST (**GET, POST, PUT, DELETE**) on each.
   **Exception:** `/users` has **no public read routes** (no `GET /users` list, no `GET /users/:id`) -
   they were unused by the client and would expose user details. Listing users is admin-only via
   `GET /admin/users`; `/users` keeps only `POST` (create) and authenticated `PUT`/`DELETE` (self).
+=======
+- Routes: `/todos`, `/posts`, `/comments` - full REST (**GET, POST, PUT, DELETE**).
+  `/users` supports read/create/profile update/password change, but no self-delete route.
+>>>>>>> 2dc6ab6 (changes on cach and transactions)
 - **POST** returns the created object (including its new `id`); **DELETE** returns the deleted object.
 - **PUT/DELETE on a post or comment is allowed only if it belongs to the active user.**
 
@@ -96,6 +101,9 @@ Schema/seed live in `database/schema.sql`, `database/grants.sql`, `database/seed
 - **Registration is atomic.** `POST /register` wraps `INSERT users` + `CALL sp_set_password`
   in one transaction (COMMIT/ROLLBACK), so a `username`/`email` is never reserved without a
   usable password.
+- **Transactions are short and rare.** Manual transactions are used only for short
+  multi-table operations that must be atomic. They contain only the required DB statements -
+  no validation, HTTP work, logging, or non-DB logic inside the transaction.
 - **Login issues JWTs.** `POST /login` calls `sp_verify_login` and returns `{ user, token }`
   on success. The JWT payload is minimal: `id`, `username`.
 - **Profile update refreshes JWTs.** `PUT /users/:id` returns `{ user, token }` so a
@@ -116,7 +124,7 @@ Schema/seed live in `database/schema.sql`, `database/grants.sql`, `database/seed
   requests, and Express resolves the authenticated user from the token into
   `req.activeUserId` / `req.activeUser`.
 - **Ownership checks use JWT auth.** Mutating `posts`, `comments`, and `todos` requests, plus
-  `PUT/DELETE /users/:id`, rely on the authenticated user from the JWT.
+  `PUT /users/:id`, rely on the authenticated user from the JWT.
 - **Error/status conventions.** Joi-validated input (`400` on failure); duplicate
   identity -> `409`; unmatched route -> `404`; everything else flows through one central
   error handler (`500`). Errors are JSON: `{ "error": "..." }`.
@@ -219,10 +227,12 @@ posts pattern (parent, soft-delete cascade), photos follow the comments pattern 
   `(SELECT COUNT(*) FROM photos WHERE album_id = albums.id AND deleted_at IS NULL)` so the
   albums grid shows photo counts with no per-album request (N+1 avoided). The `JOIN users`
   remains, only for `user_email`.
-- **Client page cache cuts repeat round-trips.** `services/cacheStore.js` is a session
-  `Map`; `albumsService`/`photosService` cache each page under
-  `albums:user:<id>:q:<q>:page:<n>` / `photos:album:<id>:page:<n>` and invalidate by prefix
-  on any write. Re-opening a visited album/page is served from cache.
+- **Client page cache cuts repeat round-trips and restores loaded views.** `services/cacheStore.js`
+  is a session `Map`. `todosService`, `postsService`, `albumsService`, and `photosService`
+  cache paginated API pages and invalidate by prefix on writes. `TodosPage`, `PostsPage`,
+  `AlbumsPage`, and `AlbumPhotosPage` also cache a view snapshot (`items`, `nextPage`) so
+  returning to a page restores the rows already loaded with "Load more" instead of starting
+  again from page 1.
 - **Pagination UI via `hooks/usePaginatedItems.js`** ("Load more", merge-by-id). Photos
   carry `title`, `url`, `thumbnail_url`.
 - **Drill-in routes.** `/users/:username/albums` (grid) and

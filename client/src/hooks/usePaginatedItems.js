@@ -22,13 +22,17 @@ export function usePaginatedItems(initialItems = [], initialNextPage = null) {
   }, []);
 
   // Append the next page, if any.
-  const loadMore = useCallback(async (fetchPage) => {
+  const loadMore = useCallback(async (fetchPage, onMerged) => {
     if (!nextPage || isLoadingMore) return null;
 
     setIsLoadingMore(true);
     try {
       const pageData = await fetchPage(nextPage);
-      setItems((current) => mergeById(current, pageData.data));
+      setItems((current) => {
+        const merged = mergeById(current, pageData.data);
+        if (onMerged) onMerged(merged, pageData.nextPage);
+        return merged;
+      });
       setNextPage(pageData.nextPage);
       return pageData;
     } finally {
