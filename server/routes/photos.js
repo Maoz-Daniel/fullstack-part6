@@ -1,118 +1,15 @@
-// /photos routes (Stage F bonus). Photos are PRIVATE: every route requires a valid JWT and
-// reads are scoped to the authenticated user. You can only add photos to your own albums.
 const express = require('express');
-const photos = require('../db/photos');
-const albums = require('../db/albums');
-const { safeLogAction } = require('../db/userActions');
+const photosController = require('../controllers/photosController');
 const { authenticateToken } = require('../middleware/authenticateToken');
-const { sendPaginated } = require('../middleware/pagination');
-const { createSchema, updateSchema, listQuerySchema } = require('../validation/photoSchemas');
 
 const router = express.Router();
 
-// All photo routes require authentication (reads included).
 router.use(authenticateToken);
 
-// GET /photos -> the active user's photos, optional ?albumId= filter, paginated.
-router.get('/', async (req, res) => {
-  const { error, value } = listQuerySchema.validate(req.query);
-  if (error) return res.status(400).json({ error: error.details[0].message });
-
-  const { page, limit, albumId } = value;
-  const rows = await photos.listPhotos({
-    userId: req.activeUserId,
-    albumId,
-    limit,
-    offset: (page - 1) * limit,
-  });
-
-  sendPaginated(req, res, rows, { page, limit, query: value });
-});
-
-// Resolve a photo the active user owns (ownership is via the photo's album), or undefined.
-async function getOwnedPhoto(photoId, activeUserId) {
-  const photo = await photos.getPhotoById(photoId);
-  if (!photo) return undefined;
-  const album = await albums.getAlbumById(photo.album_id);
-  if (!album || album.user_id !== activeUserId) return undefined;
-  return photo;
-}
-
-// GET /photos/:id -> a single photo the active user owns, else 404.
-router.get('/:id', async (req, res) => {
-  const photo = await getOwnedPhoto(req.params.id, req.activeUserId);
-  if (!photo) return res.status(404).json({ error: 'Photo not found' });
-  res.json(photo);
-});
-
-// POST /photos -> create on an album the active user owns. The parent album must exist AND
-// belong to the active user (you can't drop photos into someone else's album).
-router.post('/', async (req, res) => {
-  const { error, value } = createSchema.validate(req.body);
-  if (error) return res.status(400).json({ error: error.details[0].message });
-
-  const album = await albums.getAlbumById(value.album_id);
-  if (!album || album.user_id !== req.activeUserId) {
-    return res.status(400).json({ error: 'album_id does not reference one of your albums' });
-  }
-
-  const created = await photos.createPhoto({
-    albumId: value.album_id,
-    title: value.title,
-    url: value.url,
-    thumbnailUrl: value.thumbnail_url,
-  });
-
-  await safeLogAction({
-    actorUserId: req.activeUserId,
-    targetUserId: req.activeUserId,
-    actionType: 'photo_create',
-    resourceType: 'photo',
-    resourceId: created.id,
-    details: `created photo ${created.id} in album ${created.album_id}`,
-  });
-  res.status(201).json(created);
-});
-
-// PUT /photos/:id -> update only if owned by the authenticated user.
-router.put('/:id', async (req, res) => {
-  const { error, value } = updateSchema.validate(req.body);
-  if (error) return res.status(400).json({ error: error.details[0].message });
-
-  const existing = await getOwnedPhoto(req.params.id, req.activeUserId);
-  if (!existing) return res.status(404).json({ error: 'Photo not found' });
-
-  const updated = await photos.updatePhoto(req.params.id, {
-    title: value.title,
-    url: value.url,
-    thumbnailUrl: value.thumbnail_url,
-  });
-  await safeLogAction({
-    actorUserId: req.activeUserId,
-    targetUserId: req.activeUserId,
-    actionType: 'photo_update',
-    resourceType: 'photo',
-    resourceId: updated.id,
-    details: `updated photo ${updated.id}`,
-  });
-  res.json(updated);
-});
-
-// DELETE /photos/:id -> soft delete only if owned by the authenticated user.
-router.delete('/:id', async (req, res) => {
-  const existing = await getOwnedPhoto(req.params.id, req.activeUserId);
-  if (!existing) return res.status(404).json({ error: 'Photo not found' });
-
-  await photos.softDeletePhoto(req.params.id);
-  await safeLogAction({
-    actorUserId: req.activeUserId,
-    targetUserId: req.activeUserId,
-    actionType: 'photo_delete',
-    resourceType: 'photo',
-    resourceId: existing.id,
-    details: `deleted photo ${existing.id}`,
-  });
-  res.json(existing);
-});
+router.get('/', photosController.listPhotos);
+router.get('/:id', photosController.getPhoto);
+router.post('/', photosController.createPhoto);
+router.put('/:id', photosController.updatePhoto);
+router.delete('/:id', photosController.deletePhoto);
 
 module.exports = router;
