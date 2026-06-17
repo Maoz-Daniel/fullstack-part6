@@ -1,9 +1,5 @@
 -- ============================================================================
--- Project 6 — Stage A: seed data
--- Run as root AFTER database/schema.sql:  mysql -u root -p < database/seed.sql
---
 -- 4 users (admin is separate). Maoz/Dana/Yossi have todos/posts/comments seed data.
--- Stage F: Maoz has 6 albums; Dana/Yossi have 2 each. Maoz has 28 photos
 -- in each original album; other users have 7 photos per album.
 -- All rows start active (deleted_at / blocked_at default NULL).
 -- Passwords are set via the definer procedure, never a raw INSERT.
@@ -16,9 +12,8 @@ INSERT INTO users (name, username, email, phone, website, is_admin) VALUES
   ('Dana Levi',    'dana',   'dana@example.com',   '052-2222222', 'dana.io',    0),
   ('Yossi Mizrahi','yossi',  'yossi@example.com',  '054-3333333', 'yossi.net',  0),
   ('System Admin', 'admin',  'admin@example.com',  '050-0000000', 'admin.local', 1);
--- => ids 1=maoz, 2=dana, 3=yossi, 4=admin
 
--- Passwords via the definer procedure (never a raw INSERT).
+
 CALL sp_set_password(1, 'maoz123');
 CALL sp_set_password(2, 'dana123');
 CALL sp_set_password(3, 'yossi123');
@@ -45,12 +40,7 @@ INSERT INTO comments (post_id, user_id, body) VALUES
   (5, 1, 'Hi Yossi!'),               (5, 2, 'Hello!'),
   (6, 1, 'Agreed on soft delete.'),  (6, 2, 'Good call.');
 
--- ---------------------------------------------------------------------------
--- ALBUMS + PHOTOS (Stage F bonus). Maoz has 6 albums; Dana/Yossi have 2 each.
--- Maoz has 28 photos in each original album (56 total, 4x the original 14);
--- other users have 7 photos per album. Photos are private to the album owner
--- (derived through the album; photos have no user_id).
--- ---------------------------------------------------------------------------
+
 INSERT INTO albums (user_id, title) VALUES
   (1, 'Quiet Morning Walks'),  -- id 1 (maoz)
   (1, 'Workshop Snapshots'),   -- id 2 (maoz)

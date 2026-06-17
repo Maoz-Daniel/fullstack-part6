@@ -1,4 +1,3 @@
-// Express server entry point. Stage B: skeleton + GET /users + auth (register/login).
 const cors = require('cors');
 const express = require('express');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
@@ -10,7 +9,6 @@ app.use(
   cors({
     origin: 'http://localhost:5173',
     // Expose the Link header so the browser's fetch can read pagination info cross-origin
-    // (Stage F: albums/photos signal the next page via Link: rel="next").
     exposedHeaders: ['Link'],
   })
 );

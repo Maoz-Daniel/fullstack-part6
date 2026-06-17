@@ -1,8 +1,4 @@
-// Shared pagination helper (Stage F). The DB layer fetches `limit + 1` rows; we use the
-// extra row to know whether a next page exists, WITHOUT a COUNT(*) query. The response
-// body stays a bare array (same shape as /posts, /comments); "is there a next page" is
-// signalled by an RFC-5988 Link header with rel="next", present only when applicable.
-// (No X-Total-Count — deliberately avoided.)
+
 
 // Build `<url>; rel="next"`, carrying the current query params forward but bumping page.
 function buildNextLink(req, query, nextPage) {

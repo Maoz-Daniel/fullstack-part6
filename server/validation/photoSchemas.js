@@ -1,4 +1,3 @@
-// Joi schemas for /photos (Stage F). Owner comes from the JWT (no userId param).
 const Joi = require('joi');
 
 const createSchema = Joi.object({

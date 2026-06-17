@@ -1,8 +1,5 @@
 -- ============================================================================
--- Project 6 — Stage A: privileges (the DB-level access restriction)
--- Run as root AFTER database/schema.sql (the procedures must already exist):
---   mysql -u root -p < database/grants.sql
---
+
 -- app_user is the account the running app connects as. It gets CRUD on the four
 -- resource tables but NO privileges of any kind on users_passwords. Credential
 -- work is possible only via the SQL SECURITY DEFINER procedures it can EXECUTE.

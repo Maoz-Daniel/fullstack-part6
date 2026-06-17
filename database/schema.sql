@@ -1,5 +1,4 @@
 -- ============================================================================
--- Project 6 — Stage A: schema (tables + stored procedures)
 -- Run as a privileged user (root):  mysql -u root -p < database/schema.sql
 -- Then run database/grants.sql, then database/seed.sql.
 -- ============================================================================
@@ -72,7 +71,7 @@ CREATE TABLE posts (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------------
--- COMMENTS: many per post, owned by a user (enables ownership checks in Stage E).
+-- COMMENTS: many per post, owned by a user 
 -- ---------------------------------------------------------------------------
 CREATE TABLE comments (
   id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -84,10 +83,8 @@ CREATE TABLE comments (
   CONSTRAINT fk_comment_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
--- ---------------------------------------------------------------------------
--- ALBUMS: many per user (Stage F bonus). PRIVATE to their owner - every read is
--- scoped to the authenticated user, so albums are never shared like posts.
--- ---------------------------------------------------------------------------
+
+
 CREATE TABLE albums (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   user_id    INT          NOT NULL,

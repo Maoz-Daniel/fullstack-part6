@@ -1,5 +1,3 @@
-// Joi schemas for /albums (Stage F). The owner is taken from the JWT, never the URL,
-// so there is deliberately no userId query param to spoof.
 const Joi = require('joi');
 
 const createSchema = Joi.object({
