@@ -1,5 +1,6 @@
-// /users routes — full CRUD. Users are soft-deleted; password changes stay out of this
-// route because credentials live behind the auth procedures/table split.
+// /users routes: read/create/profile update/password change.
+// Password changes stay out of the regular profile update path because credentials
+// live behind the auth procedures/table split.
 const express = require('express');
 const users = require('../db/users');
 const { query } = require('../db/connection');
@@ -102,18 +103,6 @@ router.put('/:id/password', authenticateToken, async (req, res) => {
   });
 
   return res.json({ message: 'Password updated' });
-});
-
-// DELETE /users/:id -> soft delete the user and cascade that soft delete in server code.
-router.delete('/:id', authenticateToken, async (req, res) => {
-  const existing = await users.getUserById(req.params.id);
-  if (!existing) return res.status(404).json({ error: 'User not found' });
-  if (existing.id !== req.activeUserId) {
-    return res.status(403).json({ error: 'You can only delete your own user profile' });
-  }
-
-  await users.softDeleteUser(req.params.id);
-  res.json(existing);
 });
 
 module.exports = router;

@@ -1,5 +1,4 @@
-// Data-access layer for users. Keeps route handlers thin and centralizes the
-// soft-delete cascade required by the project conventions.
+// Data-access layer for users. Keeps route handlers thin.
 const { query } = require('./connection');
 
 function userSelectSql() {
@@ -135,37 +134,6 @@ async function makeUserAdmin(id) {
   return getUserById(id);
 }
 
-// Soft delete a user and cascade the soft delete to dependent resources in server code.
-async function softDeleteUser(id) {
-  await query('START TRANSACTION');
-  try {
-    await query(
-      'UPDATE comments SET deleted_at = NOW() WHERE post_id IN (SELECT id FROM posts WHERE user_id = ?) AND deleted_at IS NULL',
-      [id]
-    );
-    await query(
-      'UPDATE posts SET deleted_at = NOW() WHERE user_id = ? AND deleted_at IS NULL',
-      [id]
-    );
-    await query(
-      'UPDATE comments SET deleted_at = NOW() WHERE user_id = ? AND deleted_at IS NULL',
-      [id]
-    );
-    await query(
-      'UPDATE todos SET deleted_at = NOW() WHERE user_id = ? AND deleted_at IS NULL',
-      [id]
-    );
-    await query(
-      'UPDATE users SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL',
-      [id]
-    );
-    await query('COMMIT');
-  } catch (err) {
-    await query('ROLLBACK');
-    throw err;
-  }
-}
-
 module.exports = {
   listUsers,
   getUserById,
@@ -176,5 +144,4 @@ module.exports = {
   blockUser,
   unblockUser,
   makeUserAdmin,
-  softDeleteUser,
 };

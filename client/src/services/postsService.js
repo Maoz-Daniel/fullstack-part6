@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient.js';
+import { deleteByPrefix, getCached, setCached } from './cacheStore.js';
 
 function normalizePost(post) {
   return {
@@ -28,6 +29,11 @@ export async function getPosts({ userId } = {}) {
 }
 
 export async function getPostsPage({ userId, page = 1, limit = 5 } = {}) {
+  const scopeKey = userId === undefined || userId === null ? 'all' : `user:${userId}`;
+  const cacheKey = `posts:${scopeKey}:page:${page}:limit:${limit}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const params = new URLSearchParams({
     page: String(page),
     limit: String(limit),
@@ -41,10 +47,12 @@ export async function getPostsPage({ userId, page = 1, limit = 5 } = {}) {
     withPagination: true,
   });
 
-  return {
+  const result = {
     data: data.map(normalizePost),
     nextPage,
   };
+  setCached(cacheKey, result);
+  return result;
 }
 
 export async function createPost(payload) {
@@ -53,6 +61,8 @@ export async function createPost(payload) {
     body: payload,
   });
 
+  deleteByPrefix('posts:');
+  deleteByPrefix('posts-view:');
   return normalizePost(post);
 }
 
@@ -62,19 +72,31 @@ export async function updatePost(id, payload) {
     body: payload,
   });
 
+  deleteByPrefix('posts:');
+  deleteByPrefix('posts-view:');
   return normalizePost(post);
 }
 
-export function deletePost(id) {
-  return apiClient(`/posts/${id}`, {
+export async function deletePost(id) {
+  const deleted = await apiClient(`/posts/${id}`, {
     method: 'DELETE',
   });
+  deleteByPrefix('posts:');
+  deleteByPrefix('posts-view:');
+  deleteByPrefix(`comments:post:${id}:`);
+  return normalizePost(deleted);
 }
 
 export async function getComments({ postId }) {
+  const cacheKey = `comments:post:${postId}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const params = new URLSearchParams({ postId: String(postId) });
   const comments = await apiClient(`/comments?${params.toString()}`);
-  return comments.map(normalizeComment);
+  const result = comments.map(normalizeComment);
+  setCached(cacheKey, result);
+  return result;
 }
 
 export async function createComment(payload) {
@@ -83,6 +105,7 @@ export async function createComment(payload) {
     body: payload,
   });
 
+  deleteByPrefix(`comments:post:${payload.post_id}`);
   return normalizeComment(comment);
 }
 
@@ -92,11 +115,14 @@ export async function updateComment(id, payload) {
     body: payload,
   });
 
+  deleteByPrefix(`comments:post:${comment.post_id}`);
   return normalizeComment(comment);
 }
 
-export function deleteComment(id) {
-  return apiClient(`/comments/${id}`, {
+export async function deleteComment(id) {
+  const deleted = await apiClient(`/comments/${id}`, {
     method: 'DELETE',
   });
+  deleteByPrefix(`comments:post:${deleted.post_id}`);
+  return normalizeComment(deleted);
 }

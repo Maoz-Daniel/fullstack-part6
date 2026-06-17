@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { usePaginatedItems } from '../hooks/usePaginatedItems.js';
 import { getAlbumById } from '../services/albumsService.js';
+import { getCached, setCached } from '../services/cacheStore.js';
 import {
   createPhoto,
   deletePhoto,
@@ -21,6 +22,7 @@ export function AlbumPhotosPage() {
     items: photos,
     setItems,
     nextPage,
+    setNextPage,
     isLoadingMore,
     loadMore,
     replaceFirstPage,
@@ -35,6 +37,10 @@ export function AlbumPhotosPage() {
   const [pendingId, setPendingId] = useState(null);
   const [error, setError] = useState('');
 
+  function viewCacheKey() {
+    return `photos-view:album:${albumId}`;
+  }
+
   // Load the album header + first page of photos. If the album is missing or not ours, the
   // server returns 404 and we bounce back to the albums grid (the server is the real gate).
   useEffect(() => {
@@ -46,7 +52,17 @@ export function AlbumPhotosPage() {
       .then(([loadedAlbum, photosPage]) => {
         if (ignore) return;
         setAlbum(loadedAlbum);
-        replaceFirstPage(photosPage);
+        const cachedView = getCached(viewCacheKey());
+        if (cachedView) {
+          setItems(cachedView.items);
+          setNextPage(cachedView.nextPage);
+        } else {
+          replaceFirstPage(photosPage);
+        }
+        setCached(viewCacheKey(), {
+          items: cachedView ? cachedView.items : photosPage.data,
+          nextPage: cachedView ? cachedView.nextPage : photosPage.nextPage,
+        });
       })
       .catch((err) => {
         if (ignore) return;
@@ -64,7 +80,7 @@ export function AlbumPhotosPage() {
       ignore = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [albumId]);
+  }, [albumId, navigate, replaceFirstPage, setItems, setNextPage, user.username]);
 
   function handlePhotoFormChange(event) {
     const { name, value } = event.target;
@@ -80,7 +96,12 @@ export function AlbumPhotosPage() {
 
   function handleLoadMore() {
     setError('');
-    loadMore((page) => getPhotosPage({ albumId, page })).catch((err) => setError(err.message));
+    loadMore(
+      (page) => getPhotosPage({ albumId, page }),
+      (mergedItems, mergedNextPage) => {
+        setCached(viewCacheKey(), { items: mergedItems, nextPage: mergedNextPage });
+      }
+    ).catch((err) => setError(err.message));
   }
 
   async function handleCreate(event) {
@@ -104,7 +125,11 @@ export function AlbumPhotosPage() {
         thumbnail_url: thumbnail,
       });
       setPhotoForm(EMPTY_PHOTO_FORM);
-      setItems((current) => [...current, created]);
+      setItems((current) => {
+        const nextPhotos = [...current, created];
+        setCached(viewCacheKey(), { items: nextPhotos, nextPage });
+        return nextPhotos;
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -142,7 +167,11 @@ export function AlbumPhotosPage() {
         url,
         thumbnail_url: thumbnail,
       });
-      setItems((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setItems((current) => {
+        const nextPhotos = current.map((item) => (item.id === updated.id ? updated : item));
+        setCached(viewCacheKey(), { items: nextPhotos, nextPage });
+        return nextPhotos;
+      });
       cancelEditing();
     } catch (err) {
       setError(err.message);
@@ -156,7 +185,11 @@ export function AlbumPhotosPage() {
     setError('');
     try {
       await deletePhoto(photo.id, albumId);
-      setItems((current) => current.filter((item) => item.id !== photo.id));
+      setItems((current) => {
+        const nextPhotos = current.filter((item) => item.id !== photo.id);
+        setCached(viewCacheKey(), { items: nextPhotos, nextPage });
+        return nextPhotos;
+      });
       if (editingId === photo.id) cancelEditing();
     } catch (err) {
       setError(err.message);

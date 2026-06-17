@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient.js';
+import { deleteByPrefix, getCached, setCached } from './cacheStore.js';
 
 function normalizeTodo(todo) {
   return {
@@ -19,6 +20,11 @@ export async function getTodos({ userId, completed }) {
 }
 
 export async function getTodosPage({ userId, completed, page = 1, limit = 5 }) {
+  const completedKey = completed === undefined ? 'all' : String(completed);
+  const cacheKey = `todos:user:${userId}:completed:${completedKey}:page:${page}:limit:${limit}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   const params = new URLSearchParams({
     userId: String(userId),
     page: String(page),
@@ -33,10 +39,12 @@ export async function getTodosPage({ userId, completed, page = 1, limit = 5 }) {
     withPagination: true,
   });
 
-  return {
+  const result = {
     data: data.map(normalizeTodo),
     nextPage,
   };
+  setCached(cacheKey, result);
+  return result;
 }
 
 export async function createTodo(payload) {
@@ -45,6 +53,8 @@ export async function createTodo(payload) {
     body: payload,
   });
 
+  deleteByPrefix('todos:');
+  deleteByPrefix('todos-view:');
   return normalizeTodo(todo);
 }
 
@@ -54,11 +64,16 @@ export async function updateTodo(id, payload) {
     body: payload,
   });
 
+  deleteByPrefix('todos:');
+  deleteByPrefix('todos-view:');
   return normalizeTodo(todo);
 }
 
-export function deleteTodo(id) {
-  return apiClient(`/todos/${id}`, {
+export async function deleteTodo(id) {
+  const deleted = await apiClient(`/todos/${id}`, {
     method: 'DELETE',
   });
+  deleteByPrefix('todos:');
+  deleteByPrefix('todos-view:');
+  return normalizeTodo(deleted);
 }
