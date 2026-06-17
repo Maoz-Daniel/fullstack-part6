@@ -35,7 +35,7 @@ async function login(req, res) {
   const result = await query('CALL sp_verify_login(?, ?)', [username, password]);
   const rows = result[0];
 
-  if (rows.length !== 1) {
+  if (rows.length !== 1) { //if the procedures failed
     const existingUser = await users.getUserByUsername(username);
     if (existingUser?.blocked_at) {
       await safeLogAction({

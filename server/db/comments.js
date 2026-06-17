@@ -1,4 +1,3 @@
-// Data-access layer for comments.
 const { query } = require('./connection');
 
 // List active comments, optionally filtered by postId and/or userId.

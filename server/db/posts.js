@@ -1,4 +1,3 @@
-// Data-access layer for posts. Owns the soft-delete cascade to comments.
 const { query } = require('./connection');
 
 // List active posts, optionally filtered by userId.

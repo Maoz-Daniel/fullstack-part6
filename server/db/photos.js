@@ -1,7 +1,4 @@
-// Data-access layer for photos (Stage F bonus). A photo's owner is its album's owner
-// (photo -> album -> user); photos carry no user_id. Reads are PRIVATE: list is scoped to
-// the active user by joining albums and filtering albums.user_id, so a tampered albumId
-// belonging to someone else simply returns no rows.
+
 const { query } = require('./connection');
 
 // List a user's active photos, optional ?albumId= filter, paginated.

@@ -1,5 +1,3 @@
-// Data-access layer for todos. Keeps route handlers thin. All reads filter
-// `deleted_at IS NULL` (soft delete, per CLAUDE.md). Uses the promisified query() helper.
 const { query } = require('./connection');
 
 // List active todos, optionally filtered by userId and/or completed. The WHERE clause

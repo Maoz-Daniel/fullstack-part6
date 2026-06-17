@@ -1,4 +1,3 @@
-// Data-access layer for users. Keeps route handlers thin.
 const { query } = require('./connection');
 
 function userSelectSql() {
