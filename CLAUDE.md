@@ -27,8 +27,10 @@ knowledge where this doc specifies an approach.
 - A separate **users+passwords** table holds credentials, with **restricted access**.
 
 ### Server (mirrors jsonplaceholder)
-- Routes: `/todos`, `/posts`, `/comments` - full REST (**GET, POST, PUT, DELETE**).
-  `/users` supports read/create/profile update/password change, but no self-delete route.
+- Routes: `/users`, `/todos`, `/posts`, `/comments` - full REST (**GET, POST, PUT, DELETE**) on each.
+  **Exception:** `/users` has **no public read routes** (no `GET /users` list, no `GET /users/:id`) -
+  they were unused by the client and would expose user details. Listing users is admin-only via
+  `GET /admin/users`; `/users` keeps only `POST` (create) and authenticated `PUT`/`DELETE` (self).
 - **POST** returns the created object (including its new `id`); **DELETE** returns the deleted object.
 - **PUT/DELETE on a post or comment is allowed only if it belongs to the active user.**
 
