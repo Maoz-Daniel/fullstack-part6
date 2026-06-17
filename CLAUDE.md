@@ -90,11 +90,11 @@ Schema/seed live in `database/schema.sql`, `database/grants.sql`, `database/seed
 - **Server lives under `server/`.** Entry `server/index.js`; `server/routes/`,
   `server/middleware/`, `server/validation/`, `server/utils/`, and `server/db/` are runtime
   server code. The React app stays in `client/`.
-- **DB credentials in a gitignored `server/config.js`.** `server/config.example.js` (committed)
-  documents the shape; the real `server/config.js` holds the `app_user` password and is never
-  committed.
-- **JWT config in `server/config.js`.** `server/config.example.js` documents `jwt.secret` and
-  `jwt.expiresIn`; the real secret stays only in the gitignored `server/config.js`.
+- **DB credentials in a gitignored `server/config.js`.** It exports
+  `{ db: { host, user, password, database }, jwt: { secret, expiresIn } }`; the real file holds
+  the `app_user` password and JWT secret and is never committed (no committed template file).
+- **JWT config in `server/config.js`.** The gitignored `server/config.js` holds `jwt.secret`
+  and `jwt.expiresIn`; the secret stays only in that local file.
 - **One promisified connection.** `server/db/connection.js` opens a single `app_user` connection
   and exports a `util.promisify`-wrapped `query()` helper; all routes use `async/await`
   with `?` placeholders. `CALL sp_*` returns the proc's rows under `result[0]`.
