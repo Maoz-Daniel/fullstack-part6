@@ -10,18 +10,11 @@ const { createSchema, updateSchema, passwordSchema } = require('../validation/us
 
 const router = express.Router();
 
-// GET /users -> all non-deleted users.
-router.get('/', async (req, res) => {
-  const list = await users.listUsers();
-  res.json(list);
-});
-
-// GET /users/:id -> one non-deleted user, or 404.
-router.get('/:id', async (req, res) => {
-  const user = await users.getUserById(req.params.id);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json(user);
-});
+// NOTE: there are no public "list all users" / "get user by id" read routes - they were
+// unused by the client and would expose user details. Listing users is admin-only via
+// GET /admin/users (authenticateToken + requireAdmin). The shared db helpers
+// users.listUsers() / users.getUserById() are still used by other routes for ownership
+// checks and admin actions.
 
 // POST /users -> create a full user account and return the created user.
 router.post('/', async (req, res) => {
